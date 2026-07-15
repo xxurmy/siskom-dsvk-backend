@@ -46,12 +46,16 @@ class KolokiumController extends Controller
             ], 404);
         }
 
-        $query = Kolokium::with(['mahasiswa', 'pembimbing', 'moderator', 'pembahas'])
-            ->where(function ($q) use ($user) {
-                $q->where('mahasiswa_id', $user->id)
-                  ->orWhere('pembimbing_id', $user->id)
-                  ->orWhere('moderator_id', $user->id);
-        });
+        $query = Kolokium::with(['mahasiswa', 'pembimbing', 'moderator', 'pembahas']);
+
+        if ($user->role === 'mahasiswa') {
+            $query->where('mahasiswa_id', $user->id);
+        } elseif ($user->role === 'dosen') {
+            $query->where(function ($subQuery) use ($user) {
+                $subQuery->where('pembimbing_id', $user->id)
+                    ->orWhere('moderator_id', $user->id);
+            });
+        }
 
         if ($request->has('status')) {
             $query->where('status', $request->status);
