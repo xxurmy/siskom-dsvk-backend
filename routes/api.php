@@ -27,10 +27,10 @@ Route::prefix('auth')->middleware('auth:sanctum')->group(function () {
     Route::get('/kolokium', [KolokiumController::class, 'index']);
     Route::get('/kolokium/{id}', [KolokiumController::class, 'show']);
 
-    // CREATE - semua role yang login
+    // CREATE - hanya mahasiswa 
     Route::post('/kolokium', [KolokiumController::class, 'store']);
+
     // UPDATE & DELETE - hanya admin
-    Route::put('/kolokium/{id}', [KolokiumController::class, 'update']);
     Route::patch('/kolokium/{id}', [KolokiumController::class, 'update']);
     Route::delete('/kolokium/{id}', [KolokiumController::class, 'destroy']);
     
