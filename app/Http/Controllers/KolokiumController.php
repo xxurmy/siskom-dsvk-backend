@@ -22,7 +22,7 @@ class KolokiumController extends Controller
             ], 404);
         }
 
-        $query = Kolokium::with(['mahasiswa', 'pembimbing', 'moderator', 'pembahas']);
+        $query = Kolokium::query();
 
         if ($request->has('status')) {
             $query->where('status', $request->status);
@@ -46,7 +46,7 @@ class KolokiumController extends Controller
             ], 404);
         }
 
-        $query = Kolokium::with(['mahasiswa', 'pembimbing', 'moderator', 'pembahas']);
+        $query = Kolokium::query();
 
         if ($user->role === 'mahasiswa') {
             $query->where('mahasiswa_id', $user->id);
@@ -73,8 +73,7 @@ class KolokiumController extends Controller
             ], 404);
         }
 
-        $kolokium = Kolokium::with(['mahasiswa', 'pembimbing', 'moderator', 'pembahas', 'pesertaKolokium'])
-            ->find($id);
+        $kolokium = Kolokium::find($id);
 
         if (! $kolokium) {
             return response()->json(['message' => 'Kolokium tidak ditemukan'], 404);
