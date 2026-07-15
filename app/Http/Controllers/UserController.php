@@ -112,8 +112,11 @@ class UserController extends Controller
             'nama'     => 'sometimes|required|string|max:255',
             'username' => 'sometimes|required|string|unique:users,username,' . $user->id . '|max:50',
             'email'    => 'sometimes|required|email|unique:users,email,' . $user->id . '|max:255',
+            'nim'      => 'sometimes|nullable|string|unique:users,nim,' . $user->id . '|max:11',
+            'nip'      => 'sometimes|nullable|string|unique:users,nip,' . $user->id . '|max:20',
             'prodi'    => 'sometimes|required|string|max:100',
             'foto'     => 'nullable|string',
+            'tandatangan' => 'nullable|string',
         ]);
 
         $user->update($validatedData);
