@@ -15,6 +15,13 @@ class KolokiumController extends Controller
      */
     public function index(Request $request)
     {
+        $user = $request->user();
+        if (!$user) {
+            return response()->json([
+                'message' => 'User tidak ditemukan',
+            ], 404);
+        }
+
         $query = Kolokium::with(['mahasiswa', 'pembimbing', 'moderator', 'pembahas']);
 
         if ($request->has('status')) {
@@ -33,9 +40,18 @@ class KolokiumController extends Controller
     public function myKolokium(Request $request)
     {
         $user = $request->user();
+        if (!$user) {
+            return response()->json([
+                'message' => 'User tidak ditemukan',
+            ], 404);
+        }
 
         $query = Kolokium::with(['mahasiswa', 'pembimbing', 'moderator', 'pembahas'])
-            ->where('mahasiswa_id', $user->id);
+            ->where(function ($q) use ($user) {
+                $q->where('mahasiswa_id', $user->id)
+                  ->orWhere('pembimbing_id', $user->id)
+                  ->orWhere('moderator_id', $user->id);
+        });
 
         if ($request->has('status')) {
             $query->where('status', $request->status);
@@ -44,8 +60,15 @@ class KolokiumController extends Controller
         return response()->json($query->latest()->paginate(10));
     }
 
-    public function show($id)
+    public function show($id, Request $request)
     {
+        $user = $request->user();
+        if (!$user) {
+            return response()->json([
+                'message' => 'User tidak ditemukan',
+            ], 404);
+        }
+
         $kolokium = Kolokium::with(['mahasiswa', 'pembimbing', 'moderator', 'pembahas', 'pesertaKolokium'])
             ->find($id);
 
@@ -63,6 +86,17 @@ class KolokiumController extends Controller
     public function store(Request $request)
     {
         $user = $request->user();
+        if (!$user) {
+            return response()->json([
+                'message' => 'User tidak ditemukan',
+            ], 404);
+        }
+
+        if ($user->role !== 'mahasiswa') {
+            return response()->json([
+                'message' => 'Unauthorized',
+            ], 403);
+        }
 
         $validator = Validator::make($request->all(), [
             'pembimbing_id'       => 'required|array|min:1|max:2',
@@ -100,7 +134,7 @@ class KolokiumController extends Controller
         }
 
         $kolokium = Kolokium::create([
-            'mahasiswa_id'         => $user->id,
+            'mahasiswa_id'        => $user->id,
             'nama'                => $user->nama,
             'nim'                 => $user->nim,
             'prodi'               => $user->prodi,
@@ -135,6 +169,19 @@ class KolokiumController extends Controller
      */
     public function update(Request $request, $id)
     {
+        $user = $request->user();
+        if (!$user) {
+            return response()->json([
+                'message' => 'User tidak ditemukan',
+            ], 404);
+        }
+
+        if ($user->role !== 'admin') {
+            return response()->json([
+                'message' => 'Unauthorized',
+            ], 403);
+        }
+
         $kolokium = Kolokium::find($id);
 
         if (! $kolokium) {
@@ -204,8 +251,21 @@ class KolokiumController extends Controller
     /**
      * DELETE - hanya admin
      */
-    public function destroy($id)
+    public function destroy($id, Request $request)
     {
+        $user = $request->user();
+        if (!$user) {
+            return response()->json([
+                'message' => 'User tidak ditemukan',
+            ], 404);
+        }
+
+        if ($user->role !== 'admin') {
+            return response()->json([
+                'message' => 'Unauthorized',
+            ], 403);
+        }
+
         $kolokium = Kolokium::find($id);
 
         if (! $kolokium) {
