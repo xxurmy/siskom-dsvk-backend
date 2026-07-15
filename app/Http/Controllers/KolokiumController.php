@@ -101,8 +101,8 @@ class KolokiumController extends Controller
         $validator = Validator::make($request->all(), [
             'pembimbing_id'       => 'required|array|min:1|max:2',
             'pembimbing_id.*'     => 'required|integer|exists:users,id|distinct',
-            'moderator_id'        => 'nullable|exists:users,id',
-            'pembahas_id'         => 'nullable|exists:users,id',
+            'moderator_id'        => 'nullable|integer|exists:users,id',
+            'pembahas_id'         => 'nullable|integer|exists:users,id',
             'judul'               => 'required|string|max:255',
             'lokasi'              => 'nullable|string|max:255',
             'tanggal'             => 'nullable|date',
@@ -120,6 +120,18 @@ class KolokiumController extends Controller
         }
 
         $data = $validator->validated();
+
+        if (! empty($data['pembahas_id'])) {
+            $pembahasUser = User::find($data['pembahas_id']);
+
+            if (! $pembahasUser || $pembahasUser->role !== 'mahasiswa') {
+                return response()->json([
+                    'message' => 'Pembahas harus berasal dari akun dengan role mahasiswa',
+                ], 422);
+            }
+
+            $data['namapembahas'] = $pembahasUser->nama;
+        }
 
         $pembimbingUsers = User::whereIn('id', $data['pembimbing_id'])
             ->where('role', 'dosen')
@@ -192,8 +204,8 @@ class KolokiumController extends Controller
             'mahasiswa_id'          => 'sometimes|exists:users,id',
             'pembimbing_id'        => 'sometimes|array|min:1|max:2',
             'pembimbing_id.*'      => 'required_with:pembimbing_id|integer|exists:users,id|distinct',
-            'moderator_id'         => 'sometimes|nullable|exists:users,id',
-            'pembahas_id'          => 'sometimes|nullable|exists:users,id',
+            'moderator_id'         => 'sometimes|nullable|integer|exists:users,id',
+            'pembahas_id'          => 'sometimes|nullable|integer|exists:users,id',
             'nama'                 => 'sometimes|string|max:255',
             'nim'                  => 'sometimes|string|max:50',
             'prodi'                => 'sometimes|string|max:100',
@@ -216,6 +228,48 @@ class KolokiumController extends Controller
         }
 
         $data = $validator->validated();
+
+        $pembimbingIds = isset($data['pembimbing_id'])
+            ? $data['pembimbing_id']
+            : $kolokium->pembimbing()->pluck('users.id')->all();
+
+        if (array_key_exists('pembahas_id', $data)) {
+            if ($data['pembahas_id'] === null) {
+                $data['namapembahas'] = null;
+            } else {
+                $pembahasUser = User::find($data['pembahas_id']);
+
+                if (! $pembahasUser || $pembahasUser->role !== 'mahasiswa') {
+                    return response()->json([
+                        'message' => 'Pembahas harus berasal dari akun dengan role mahasiswa',
+                    ], 422);
+                }
+
+                $data['namapembahas'] = $pembahasUser->nama;
+            }
+        }
+
+        if (array_key_exists('moderator_id', $data)) {
+            if ($data['moderator_id'] === null) {
+                $data['namadosenmoderator'] = null;
+            } else {
+                $moderatorUser = User::find($data['moderator_id']);
+
+                if (! $moderatorUser || $moderatorUser->role !== 'dosen') {
+                    return response()->json([
+                        'message' => 'Moderator harus berasal dari akun dengan role dosen',
+                    ], 422);
+                }
+
+                if (in_array($moderatorUser->id, $pembimbingIds, true)) {
+                    return response()->json([
+                        'message' => 'Moderator harus berbeda dari dosen pembimbing',
+                    ], 422);
+                }
+
+                $data['namadosenmoderator'] = $moderatorUser->nama;
+            }
+        }
 
         if (isset($data['pembimbing_id'])) {
             $pembimbingUsers = User::whereIn('id', $data['pembimbing_id'])
