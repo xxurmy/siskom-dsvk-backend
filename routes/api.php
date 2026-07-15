@@ -4,6 +4,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\RegisterController;
+Use App\Http\Controllers\UserController;
 
 // Auth
 Route::post('/login', [AuthController::class, 'login']);
@@ -12,7 +13,10 @@ Route::post('/login', [AuthController::class, 'login']);
 Route::post('/register/dosen', [RegisterController::class, 'registerDosen']);
 Route::post('/register/mahasiswa', [RegisterController::class, 'registerMahasiswa']);
 
-Route::middleware('auth:sanctum')->group(function () {
+Route::prefix('auth')->middleware('auth:sanctum')->group(function () {
     Route::post('/logout', [AuthController::class, 'logout']);
-    Route::get('/me', [AuthController::class, 'me']);
+    Route::get('/profile', [UserController::class, 'profile']);
+    Route::get('/users', [UserController::class, 'index']);
+    Route::get('/users/{id}', [UserController::class, 'show']);
+    Route::patch('/profile', [UserController::class, 'updateProfile']);
 });
