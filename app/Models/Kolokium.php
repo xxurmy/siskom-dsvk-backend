@@ -10,7 +10,7 @@ use App\Models\KolokiumPembimbing;
 class Kolokium extends Model
 {
     use HasFactory;
-
+    protected $table = 'kolokiums';
     protected $fillable = [
         'mahasiswa_id',
         'moderator_id',

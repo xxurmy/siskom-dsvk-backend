@@ -6,6 +6,8 @@ use App\Http\Controllers\AuthController;
 use App\Http\Controllers\RegisterController;
 Use App\Http\Controllers\UserController;
 use App\Http\Controllers\KolokiumController;
+
+
 // Auth
 Route::post('/login', [AuthController::class, 'login']);
 
@@ -25,7 +27,7 @@ Route::prefix('auth')->middleware('auth:sanctum')->group(function () {
     Route::get('/kolokium', [KolokiumController::class, 'index']);
     Route::get('/kolokium/{id}', [KolokiumController::class, 'show']);
 
-    // CREATE - hanya mahasiswa
+    // CREATE - semua role yang login
     Route::post('/kolokium', [KolokiumController::class, 'store']);
     // UPDATE & DELETE - hanya admin
     Route::put('/kolokium/{id}', [KolokiumController::class, 'update']);
