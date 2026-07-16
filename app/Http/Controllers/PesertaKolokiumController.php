@@ -115,6 +115,16 @@ class PesertaKolokiumController extends Controller
             ], 404);
         }
 
+        if ($validated['status'] === 'hadir') {
+            $kolokium = Kolokium::find($peserta->kolokium_id);
+
+            if ($kolokium && (int) $peserta->mahasiswa_id === (int) $kolokium->mahasiswa_id) {
+                return response()->json([
+                    'message' => 'Mahasiswa pemilik kolokium tidak dapat diubah menjadi hadir pada peserta kolokium ini',
+                ], 422);
+            }
+        }
+
         $peserta->update([
             'status' => $validated['status'],
         ]);
