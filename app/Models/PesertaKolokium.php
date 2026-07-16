@@ -26,4 +26,9 @@ class PesertaKolokium extends Model
     {
         return $this->belongsTo(User::class, 'mahasiswa_id');
     }
+
+    public function kartuKolokium()
+    {
+        return $this->hasOne(KartuKolokium::class, 'peserta_kolokium_id');
+    }
 }

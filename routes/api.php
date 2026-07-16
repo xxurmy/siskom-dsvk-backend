@@ -6,6 +6,7 @@ use App\Http\Controllers\AuthController;
 use App\Http\Controllers\RegisterController;
 Use App\Http\Controllers\UserController;
 use App\Http\Controllers\KolokiumController;
+use App\Http\Controllers\KartuKolokiumController;
 use App\Http\Controllers\PesertaKolokiumController;
 
 
@@ -47,6 +48,10 @@ Route::prefix('auth')->middleware('auth:sanctum')->group(function () {
     Route::get('/peserta-kolokium/{id}', [PesertaKolokiumController::class, 'show']);
     Route::post('/peserta-kolokium', [PesertaKolokiumController::class, 'store']);
     Route::patch('/peserta-kolokium/{id}/status', [PesertaKolokiumController::class, 'updateStatus']);
+
+    // KARTU KOLOKIUM
+    Route::get('/kartu-kolokium/my', [KartuKolokiumController::class, 'my']);
+    Route::patch('/kartu-kolokium/{id}/status-paraf', [KartuKolokiumController::class, 'updateStatusParaf']);
 
     // UPDATE & DELETE - hanya admin
     Route::patch('/kolokium/{id}', [KolokiumController::class, 'update']);

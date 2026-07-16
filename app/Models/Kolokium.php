@@ -5,6 +5,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use App\Models\KartuKolokium;
 use App\Models\PesertaKolokium;
 use App\Models\User;
 use App\Models\KolokiumPembimbing;
@@ -65,5 +66,10 @@ class Kolokium extends Model
     public function pesertaKolokium()
     {
         return $this->hasMany(PesertaKolokium::class);
+    }
+
+    public function kartuKolokium()
+    {
+        return $this->hasMany(KartuKolokium::class);
     }
 }
