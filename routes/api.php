@@ -6,6 +6,7 @@ use App\Http\Controllers\AuthController;
 use App\Http\Controllers\RegisterController;
 Use App\Http\Controllers\UserController;
 use App\Http\Controllers\KolokiumController;
+use App\Http\Controllers\PesertaKolokiumController;
 
 
 // Auth
@@ -34,6 +35,14 @@ Route::prefix('auth')->middleware('auth:sanctum')->group(function () {
 
     // CREATE - hanya mahasiswa 
     Route::post('/kolokium', [KolokiumController::class, 'store']);
+
+    // PESERTA KOLOKIUM
+    // Admin dan Dosen
+    Route::get('/peserta-kolokium', [PesertaKolokiumController::class, 'index']);
+    Route::get('/peserta-kolokium/{id}', [PesertaKolokiumController::class, 'show']);
+    // Mahasiswa
+    Route::get('/peserta-kolokium/my', [PesertaKolokiumController::class, 'myPesertaKolokium']);
+    Route::patch('/peserta-kolokium/{id}/status', [PesertaKolokiumController::class, 'updateStatus']);
 
     // UPDATE & DELETE - hanya admin
     Route::patch('/kolokium/{id}', [KolokiumController::class, 'update']);

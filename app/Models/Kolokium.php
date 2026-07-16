@@ -5,6 +5,8 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use App\Models\PesertaKolokium;
+use App\Models\User;
 use App\Models\KolokiumPembimbing;
 
 class Kolokium extends Model
