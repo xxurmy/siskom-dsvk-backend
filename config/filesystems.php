@@ -59,6 +59,18 @@ return [
             'throw' => false,
             'report' => false,
         ],
+        'backblaze' => [
+            'driver' => 's3',
+            'key' => env('BACKBLAZE_KEY_ID'),
+            'secret' => env('BACKBLAZE_APPLICATION_KEY'),
+            'region' => env('BACKBLAZE_REGION', 'us-west-002'),
+            'bucket' => env('BACKBLAZE_BUCKET'),
+            'url' => env('BACKBLAZE_URL'),
+            'endpoint' => env('BACKBLAZE_ENDPOINT', 'https://s3.us-west-002.backblazeb2.com'),
+            'use_path_style_endpoint' => env('BACKBLAZE_USE_PATH_STYLE_ENDPOINT', false),
+            'throw' => false,
+            'report' => false,
+        ],
 
     ],
 

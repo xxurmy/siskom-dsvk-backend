@@ -142,18 +142,18 @@ class UserController extends Controller
         ]);
 
         if ($user->foto) {
-            Storage::disk('public')->delete($user->foto);
+            Storage::disk('backblaze')->delete($this->extractPath($user->foto));
         }
 
-        $path = $request->file('foto')->store('profile-photos', 'public');
+        $path = $request->file('foto')->store('profile-photos', 'backblaze');
 
         $user->update([
-            'foto' => $path,
+            'foto' => url('/api/auth/images/' . $path),
         ]);
 
         return response()->json([
             'message' => 'Foto profil berhasil diupload',
-            'foto' => asset('storage/' . $path),
+            'foto' => $user->foto,
             'user' => $user,
         ]);
     }
@@ -172,19 +172,48 @@ class UserController extends Controller
         ]);
 
         if ($user->tandatangan) {
-            Storage::disk('public')->delete($user->tandatangan);
+            Storage::disk('backblaze')->delete($this->extractPath($user->tandatangan));
         }
 
-        $path = $request->file('tandatangan')->store('signatures', 'public');
+        $path = $request->file('tandatangan')->store('signatures', 'backblaze');
 
         $user->update([
-            'tandatangan' => $path,
+            'tandatangan' => url('/api/auth/images/' . $path),
         ]);
 
         return response()->json([
             'message' => 'Tanda tangan berhasil diupload',
-            'tandatangan' => asset('storage/' . $path),
+            'tandatangan' => $user->tandatangan,
             'user' => $user,
+        ]);
+    }
+
+    /**
+     * Ambil kembali path relatif (mis. "profile-photos/xxx.jpg") dari URL lengkap
+     * yang tersimpan di kolom foto/tandatangan, supaya bisa dipakai untuk delete di B2.
+     */
+    private function extractPath(string $url): string
+    {
+        $prefix = url('/api/auth/images/');
+        return ltrim(str_replace($prefix, '', $url), '/');
+    }
+
+    /**
+     * Proxy/stream file dari Backblaze B2 (private bucket) lewat Laravel,
+     * dengan cache header 7 hari di browser/CDN.
+     */
+    public function showImage(Request $request, string $path)
+    {
+        $disk = Storage::disk('backblaze');
+
+        if (! $disk->exists($path)) {
+            return response()->json([
+                'message' => 'File tidak ditemukan',
+            ], 404);
+        }
+
+        return $disk->response($path, null, [
+            'Cache-Control' => 'public, max-age=604800', // 7 hari
         ]);
     }
 
