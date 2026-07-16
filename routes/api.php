@@ -39,9 +39,13 @@ Route::prefix('auth')->middleware('auth:sanctum')->group(function () {
     // PESERTA KOLOKIUM
     // Admin dan Dosen
     Route::get('/peserta-kolokium', [PesertaKolokiumController::class, 'index']);
-    Route::get('/peserta-kolokium/{id}', [PesertaKolokiumController::class, 'show']);
     // Mahasiswa
-    Route::get('/peserta-kolokium/my', [PesertaKolokiumController::class, 'myPesertaKolokium']);
+    // get my kolokium peserta (kolokium yang diikuti)
+    Route::get('/peserta-kolokium/my-kolokium', [PesertaKolokiumController::class, 'myKolokiumPeserta']);
+    // get my peserta kolokium (peserta kolokium saya)
+    Route::get('/peserta-kolokium/my-peserta', [PesertaKolokiumController::class, 'myPesertaKolokium']);
+    Route::get('/peserta-kolokium/{id}', [PesertaKolokiumController::class, 'show']);
+    Route::post('/peserta-kolokium', [PesertaKolokiumController::class, 'store']);
     Route::patch('/peserta-kolokium/{id}/status', [PesertaKolokiumController::class, 'updateStatus']);
 
     // UPDATE & DELETE - hanya admin
