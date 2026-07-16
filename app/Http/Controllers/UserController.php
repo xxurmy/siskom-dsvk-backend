@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 
 use App\Models\User;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Storage;
 
 class UserController extends Controller
 {
@@ -127,5 +128,65 @@ class UserController extends Controller
         ]);
     }
 
+    public function uploadFotoProfil(Request $request)
+    {
+        $user = $request->user();
+        if (! $user) {
+            return response()->json([
+                'message' => 'User tidak ditemukan',
+            ], 404);
+        }
 
+        $request->validate([
+            'foto' => 'required|image|mimes:jpg,jpeg,png,webp|max:5120' // 5MB
+        ]);
+
+        if ($user->foto) {
+            Storage::disk('public')->delete($user->foto);
+        }
+
+        $path = $request->file('foto')->store('profile-photos', 'public');
+
+        $user->update([
+            'foto' => $path,
+        ]);
+
+        return response()->json([
+            'message' => 'Foto profil berhasil diupload',
+            'foto' => asset('storage/' . $path),
+            'user' => $user,
+        ]);
+    }
+
+    public function uploadTandaTangan(Request $request)
+    {
+        $user = $request->user();
+        if (! $user) {
+            return response()->json([
+                'message' => 'User tidak ditemukan',
+            ], 404);
+        }
+
+        $request->validate([
+            'tandatangan' => 'required|image|mimes:jpg,jpeg,png,webp|max:2048',
+        ]);
+
+        if ($user->tandatangan) {
+            Storage::disk('public')->delete($user->tandatangan);
+        }
+
+        $path = $request->file('tandatangan')->store('signatures', 'public');
+
+        $user->update([
+            'tandatangan' => $path,
+        ]);
+
+        return response()->json([
+            'message' => 'Tanda tangan berhasil diupload',
+            'tandatangan' => asset('storage/' . $path),
+            'user' => $user,
+        ]);
+    }
+
+    
 }
