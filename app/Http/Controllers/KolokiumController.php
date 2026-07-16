@@ -175,7 +175,7 @@ class KolokiumController extends Controller
 
         return response()->json([
             'message'  => 'Kolokium berhasil dibuat',
-            'kolokium' => $kolokium->load('pembimbing'),
+            'kolokium' => $kolokium,
         ], 201);
     }
 
