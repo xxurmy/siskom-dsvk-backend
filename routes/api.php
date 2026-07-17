@@ -8,6 +8,9 @@ Use App\Http\Controllers\UserController;
 use App\Http\Controllers\KolokiumController;
 use App\Http\Controllers\KartuKolokiumController;
 use App\Http\Controllers\PesertaKolokiumController;
+use App\Http\Controllers\SeminarController;
+use App\Http\Controllers\PesertaSeminarController;
+use App\Http\Controllers\KartuSeminarController;
 
 
 // Auth
@@ -37,6 +40,12 @@ Route::prefix('auth')->middleware('auth:sanctum')->group(function () {
     // CREATE - hanya mahasiswa 
     Route::post('/kolokium', [KolokiumController::class, 'store']);
 
+    // SEMINAR
+    Route::get('/seminar/my', [SeminarController::class, 'mySeminar']);
+    Route::get('/seminar', [SeminarController::class, 'index']);
+    Route::get('/seminar/{id}', [SeminarController::class, 'show']);
+    Route::post('/seminar', [SeminarController::class, 'store']);
+
     // PESERTA KOLOKIUM
     // Admin dan Dosen
     Route::get('/peserta-kolokium', [PesertaKolokiumController::class, 'index']);
@@ -53,8 +62,22 @@ Route::prefix('auth')->middleware('auth:sanctum')->group(function () {
     Route::get('/kartu-kolokium/my', [KartuKolokiumController::class, 'my']);
     Route::patch('/kartu-kolokium/{id}/status-paraf', [KartuKolokiumController::class, 'updateStatusParaf']);
 
+    // PESERTA SEMINAR
+    Route::get('/peserta-seminar', [PesertaSeminarController::class, 'index']);
+    Route::get('/peserta-seminar/my-seminar', [PesertaSeminarController::class, 'mySeminarPeserta']);
+    Route::get('/peserta-seminar/my-peserta', [PesertaSeminarController::class, 'myPesertaSeminar']);
+    Route::get('/peserta-seminar/{id}', [PesertaSeminarController::class, 'show']);
+    Route::post('/peserta-seminar', [PesertaSeminarController::class, 'store']);
+    Route::patch('/peserta-seminar/{id}/status', [PesertaSeminarController::class, 'updateStatus']);
+
+    // KARTU SEMINAR
+    Route::get('/kartu-seminar/my', [KartuSeminarController::class, 'my']);
+    Route::patch('/kartu-seminar/{id}/status-paraf', [KartuSeminarController::class, 'updateStatusParaf']);
+
     // UPDATE & DELETE - hanya admin
     Route::patch('/kolokium/{id}', [KolokiumController::class, 'update']);
     Route::delete('/kolokium/{id}', [KolokiumController::class, 'destroy']);
+    Route::patch('/seminar/{id}', [SeminarController::class, 'update']);
+    Route::delete('/seminar/{id}', [SeminarController::class, 'destroy']);
     
 });

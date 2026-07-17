@@ -4,6 +4,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\KartuKolokium;
+use App\Models\KartuSeminar;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
@@ -187,6 +188,12 @@ class UserController extends Controller
             ->update([
             'tandatangandosen' => $user->tandatangan,
         ]);
+
+        KartuSeminar::where('moderator_id', $user->id)
+            ->where('statusparaf', 'signed')
+            ->update([
+                'tandatangandosen' => $user->tandatangan,
+            ]);
 
         return response()->json([
             'message' => 'Tanda tangan berhasil diupload',
