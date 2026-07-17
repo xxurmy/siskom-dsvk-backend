@@ -25,6 +25,7 @@ class KartuKolokium extends Model
         'moderator',
         'namaforum',
         'nimforum',
+        'tandatangandosen',
         'statusparaf',
     ];
 

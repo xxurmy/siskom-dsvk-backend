@@ -315,6 +315,7 @@ class PesertaKolokiumController extends Controller
                 'moderator' => $peserta->kolokium->moderator?->nama,
                 'namaforum' => $peserta->mahasiswa?->nama,
                 'nimforum' => $peserta->mahasiswa?->nim,
+                'tandatangandosen' => null,
                 'statusparaf' => 'pending',
             ]
         );

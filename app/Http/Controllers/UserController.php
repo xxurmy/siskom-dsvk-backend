@@ -3,6 +3,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\KartuKolokium;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
@@ -179,6 +180,12 @@ class UserController extends Controller
 
         $user->update([
             'tandatangan' => url('/api/auth/images/' . $path),
+        ]);
+
+        KartuKolokium::where('moderator_id', $user->id)
+            ->where('statusparaf', 'signed')
+            ->update([
+            'tandatangandosen' => $user->tandatangan,
         ]);
 
         return response()->json([

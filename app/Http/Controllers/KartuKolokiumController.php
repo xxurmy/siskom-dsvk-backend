@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\KartuKolokium;
+use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
 
@@ -35,28 +36,7 @@ class KartuKolokiumController extends Controller
         }
 
         $kartuKolokiums = $query->latest()->get()->map(function ($kartuKolokium) use ($user) {
-            $data = [
-                'id' => $kartuKolokium->id,
-                'kolokium_id' => $kartuKolokium->kolokium_id,
-                'pemrasaran_id' => $kartuKolokium->pemrasaran_id,
-                'moderator_id' => $kartuKolokium->moderator_id,
-                'peserta_kolokium_id' => $kartuKolokium->peserta_kolokium_id,
-                'forum_id' => $kartuKolokium->forum_id,
-                'tanggal' => $kartuKolokium->tanggal,
-                'waktu' => $kartuKolokium->waktu,
-                'namapemrasaran' => $kartuKolokium->namapemrasaran,
-                'nimpemrasaran' => $kartuKolokium->nimpemrasaran,
-                'prodi' => $kartuKolokium->prodi,
-                'moderator' => $kartuKolokium->moderator,
-                'statusparaf' => $kartuKolokium->statusparaf,
-            ];
-
-            if ($user->role === 'dosen') {
-                $data['namaforum'] = $kartuKolokium->namaforum;
-                $data['nimforum'] = $kartuKolokium->nimforum;
-            }
-
-            return $data;
+            return $this->formatKartuKolokium($kartuKolokium, $user);
         });
 
         return response()->json([
@@ -84,7 +64,7 @@ class KartuKolokiumController extends Controller
             'statusparaf' => 'required|in:signed',
         ]);
 
-        $kartuKolokium = KartuKolokium::with('pesertaKolokium.kolokium')->find($id);
+        $kartuKolokium = KartuKolokium::find($id);
         if (! $kartuKolokium) {
             return response()->json([
                 'message' => 'Kartu kolokium tidak ditemukan',
@@ -124,11 +104,39 @@ class KartuKolokiumController extends Controller
 
         $kartuKolokium->update([
             'statusparaf' => $validated['statusparaf'],
+            'tandatangandosen' => $user->tandatangan,
         ]);
 
         return response()->json([
             'message' => 'Status paraf kartu kolokium berhasil diperbarui',
-            'kartu_kolokium' => $kartuKolokium,
+            'kartu_kolokium' => $this->formatKartuKolokium($kartuKolokium, $user),
         ]);
+    }
+
+    private function formatKartuKolokium(KartuKolokium $kartuKolokium, User $user): array
+    {
+        $data = [
+            'id' => $kartuKolokium->id,
+            'kolokium_id' => $kartuKolokium->kolokium_id,
+            'pemrasaran_id' => $kartuKolokium->pemrasaran_id,
+            'moderator_id' => $kartuKolokium->moderator_id,
+            'peserta_kolokium_id' => $kartuKolokium->peserta_kolokium_id,
+            'forum_id' => $kartuKolokium->forum_id,
+            'tanggal' => $kartuKolokium->tanggal,
+            'waktu' => $kartuKolokium->waktu,
+            'namapemrasaran' => $kartuKolokium->namapemrasaran,
+            'nimpemrasaran' => $kartuKolokium->nimpemrasaran,
+            'prodi' => $kartuKolokium->prodi,
+            'moderator' => $kartuKolokium->moderator,
+            'tandatangandosen' => $kartuKolokium->statusparaf === 'signed' ? $kartuKolokium->tandatangandosen : null,
+            'statusparaf' => $kartuKolokium->statusparaf,
+        ];
+
+        if ($user->role === 'dosen') {
+            $data['namaforum'] = $kartuKolokium->namaforum;
+            $data['nimforum'] = $kartuKolokium->nimforum;
+        }
+
+        return $data;
     }
 }
