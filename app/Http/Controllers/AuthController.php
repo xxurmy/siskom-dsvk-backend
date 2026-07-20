@@ -74,4 +74,33 @@ class AuthController extends Controller
     {
         return response()->json($request->user());
     }
+
+    public function changePassword(Request $request)
+    {
+        $user = $request->user();
+        if (! $user) {
+            return response()->json([
+                'message' => 'User tidak ditemukan',
+            ], 404);
+        }
+
+        $request->validate([
+            'current_password' => 'required|string',
+            'password' => 'required|string|min:8|confirmed',
+        ]);
+
+        if (! Hash::check($request->input('current_password'), $user->password)) {
+            return response()->json([
+                'message' => 'Password lama salah',
+            ], 422);
+        }
+
+        $user->update([
+            'password' => Hash::make($request->input('password')),
+        ]);
+
+        return response()->json([
+            'message' => 'Password berhasil diganti',
+        ]);
+    }
 }

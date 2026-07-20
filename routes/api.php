@@ -28,7 +28,8 @@ Route::prefix('auth')->middleware('auth:sanctum')->group(function () {
     Route::patch('/profile', [UserController::class, 'updateProfile']);
     Route::post('/profile/foto', [UserController::class, 'uploadFotoProfil']);
     Route::post('/profile/tandatangan', [UserController::class, 'uploadTandaTangan']);
-    
+    Route::post('/change-password', [AuthController::class, 'changePassword']);
+
     Route::get('/images/{path}', [UserController::class, 'showImage'])
     ->where('path', '.*'); // biar bisa tangkap path dengan folder, mis: profile-photos/xxx.jpg
     
