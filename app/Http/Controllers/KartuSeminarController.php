@@ -35,7 +35,7 @@ class KartuSeminarController extends Controller
             $query->where('moderator_id', $user->id);
         }
 
-        $kartuSeminars = $query->latest()->get()->map(function ($kartuSeminar) use ($user) {
+        $kartuSeminars = $query->latest()->get()->map(function (KartuSeminar $kartuSeminar) use ($user) {
             return $this->formatKartuSeminar($kartuSeminar, $user);
         });
 
@@ -61,7 +61,7 @@ class KartuSeminarController extends Controller
         }
 
         $validated = $request->validate([
-            'statusparaf' => 'required|in:signed',
+            'statusparaf' => 'required|in:signed,absent',
         ]);
 
         $kartuSeminar = KartuSeminar::find($id);
@@ -89,12 +89,6 @@ class KartuSeminarController extends Controller
             ], 422);
         }
 
-        if (empty($user->tandatangan)) {
-            return response()->json([
-                'message' => 'Tanda tangan dosen belum tersedia',
-            ], 422);
-        }
-
         if ($kartuSeminar->statusparaf === 'signed') {
             return response()->json([
                 'message' => 'Status paraf sudah signed',
@@ -102,10 +96,22 @@ class KartuSeminarController extends Controller
             ]);
         }
 
-        $kartuSeminar->update([
+        $updateData = [
             'statusparaf' => $validated['statusparaf'],
-            'tandatangandosen' => $user->tandatangan,
-        ]);
+            'tandatangandosen' => null,
+        ];
+
+        if ($validated['statusparaf'] === 'signed') {
+            if (empty($user->tandatangan)) {
+                return response()->json([
+                    'message' => 'Tanda tangan dosen belum tersedia',
+                ], 422);
+            }
+
+            $updateData['tandatangandosen'] = $user->tandatangan;
+        }
+
+        $kartuSeminar->update($updateData);
 
         return response()->json([
             'message' => 'Status paraf kartu seminar berhasil diperbarui',

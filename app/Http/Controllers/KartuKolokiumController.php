@@ -35,7 +35,7 @@ class KartuKolokiumController extends Controller
             $query->where('moderator_id', $user->id);
         }
 
-        $kartuKolokiums = $query->latest()->get()->map(function ($kartuKolokium) use ($user) {
+        $kartuKolokiums = $query->latest()->get()->map(function (KartuKolokium $kartuKolokium) use ($user) {
             return $this->formatKartuKolokium($kartuKolokium, $user);
         });
 
@@ -61,7 +61,7 @@ class KartuKolokiumController extends Controller
         }
 
         $validated = $request->validate([
-            'statusparaf' => 'required|in:signed',
+            'statusparaf' => 'required|in:signed,absent',
         ]);
 
         $kartuKolokium = KartuKolokium::find($id);
@@ -89,12 +89,6 @@ class KartuKolokiumController extends Controller
             ], 422);
         }
 
-        if (empty($user->tandatangan)) {
-            return response()->json([
-                'message' => 'Tanda tangan dosen belum tersedia',
-            ], 422);
-        }
-
         if ($kartuKolokium->statusparaf === 'signed') {
             return response()->json([
                 'message' => 'Status paraf sudah signed',
@@ -102,10 +96,22 @@ class KartuKolokiumController extends Controller
             ]);
         }
 
-        $kartuKolokium->update([
+        $updateData = [
             'statusparaf' => $validated['statusparaf'],
-            'tandatangandosen' => $user->tandatangan,
-        ]);
+            'tandatangandosen' => null,
+        ];
+
+        if ($validated['statusparaf'] === 'signed') {
+            if (empty($user->tandatangan)) {
+                return response()->json([
+                    'message' => 'Tanda tangan dosen belum tersedia',
+                ], 422);
+            }
+
+            $updateData['tandatangandosen'] = $user->tandatangan;
+        }
+
+        $kartuKolokium->update($updateData);
 
         return response()->json([
             'message' => 'Status paraf kartu kolokium berhasil diperbarui',
