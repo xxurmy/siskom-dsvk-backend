@@ -45,8 +45,10 @@ class SeminarController extends Controller
             $query->where('mahasiswa_id', $user->id);
         } elseif ($user->role === 'dosen') {
             $query->where(function ($subQuery) use ($user) {
-                $subQuery->where('pembimbing_id', $user->id)
-                    ->orWhere('moderator_id', $user->id);
+                $subQuery->where('moderator_id', $user->id)
+                    ->orWhereHas('pembimbing', function ($pembimbingQuery) use ($user) {
+                        $pembimbingQuery->where('users.id', $user->id);
+                    });
             });
         }
 
