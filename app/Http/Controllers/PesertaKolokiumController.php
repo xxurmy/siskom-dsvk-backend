@@ -311,7 +311,7 @@ class PesertaKolokiumController extends Controller
                 'waktu' => $peserta->kolokium->waktu,
                 'namapemrasaran' => $peserta->kolokium->mahasiswa?->nama,
                 'nimpemrasaran' => $peserta->kolokium->mahasiswa?->nim,
-                'prodi' => $peserta->mahasiswa?->prodi,
+                'prodi' => $peserta->kolokium->mahasiswa?->prodi,
                 'moderator' => $peserta->kolokium->moderator?->nama,
                 'namaforum' => $peserta->mahasiswa?->nama,
                 'nimforum' => $peserta->mahasiswa?->nim,

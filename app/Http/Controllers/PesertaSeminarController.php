@@ -311,7 +311,7 @@ class PesertaSeminarController extends Controller
                 'waktu' => $peserta->seminar->waktu,
                 'namapemrasaran' => $peserta->seminar->mahasiswa?->nama,
                 'nimpemrasaran' => $peserta->seminar->mahasiswa?->nim,
-                'prodi' => $peserta->mahasiswa?->prodi,
+                'prodi' => $peserta->seminar->mahasiswa?->prodi,
                 'moderator' => $peserta->seminar->moderator?->nama,
                 'namaforum' => $peserta->mahasiswa?->nama,
                 'nimforum' => $peserta->mahasiswa?->nim,
