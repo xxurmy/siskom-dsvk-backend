@@ -102,6 +102,55 @@ class UserController extends Controller
         ]);
     }
 
+        /**
+     * Daftar dosen — bisa diakses semua role yang sudah login (bukan admin-only)
+     * Dipakai untuk dropdown "Dosen Pembimbing" di form daftar kolokium/seminar.
+     */
+    public function dosenList(Request $request)
+    {
+        $user = $request->user();
+        if (! $user) {
+            return response()->json([
+                'message' => 'User tidak ditemukan',
+            ], 404);
+        }
+
+        $dosens = User::where('role', 'dosen')
+            ->select('id', 'nama', 'nip')
+            ->orderBy('nama')
+            ->get();
+
+        return response()->json([
+            'message' => 'Daftar dosen berhasil didapatkan',
+            'users' => $dosens,
+        ]);
+    }
+
+    /**
+     * Daftar mahasiswa (selain diri sendiri) — bisa diakses semua role yang login.
+     * Dipakai untuk dropdown "Mahasiswa Pembahas" di form daftar kolokium/seminar.
+     */
+    public function mahasiswaList(Request $request)
+    {
+        $user = $request->user();
+        if (! $user) {
+            return response()->json([
+                'message' => 'User tidak ditemukan',
+            ], 404);
+        }
+
+        $mahasiswas = User::where('role', 'mahasiswa')
+            ->where('id', '!=', $user->id)
+            ->select('id', 'nama', 'nim')
+            ->orderBy('nama')
+            ->get();
+
+        return response()->json([
+            'message' => 'Daftar mahasiswa berhasil didapatkan',
+            'users' => $mahasiswas,
+        ]);
+    }
+
     public function updateProfile(Request $request)
     {
         $user = $request->user();

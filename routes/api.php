@@ -25,6 +25,8 @@ Route::prefix('auth')->middleware('auth:sanctum')->group(function () {
     Route::get('/profile', [UserController::class, 'profile']);
     Route::get('/users', [UserController::class, 'index']);
     Route::get('/users/{id}', [UserController::class, 'show']);
+    Route::get('/dosen', [UserController::class, 'dosenList']);
+    Route::get('/mahasiswa', [UserController::class, 'mahasiswaList']);
     Route::patch('/profile', [UserController::class, 'updateProfile']);
     Route::post('/profile/foto', [UserController::class, 'uploadFotoProfil']);
     Route::post('/profile/tandatangan', [UserController::class, 'uploadTandaTangan']);
