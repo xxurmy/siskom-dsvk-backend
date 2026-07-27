@@ -17,7 +17,6 @@ class Kolokium extends Model
     protected $fillable = [
         'mahasiswa_id',
         'moderator_id',
-        'pembahas_id',
         'nama',
         'nim',
         'prodi',
@@ -26,7 +25,6 @@ class Kolokium extends Model
         'lokasi',
         'tanggal',
         'waktu',
-        'namapembahas',
         'namadosenmoderator',
         'ruangan',
         'status',
@@ -56,11 +54,6 @@ class Kolokium extends Model
     public function moderator()
     {
         return $this->belongsTo(User::class, 'moderator_id');
-    }
-
-    public function pembahas()
-    {
-        return $this->belongsTo(User::class, 'pembahas_id');
     }
 
     public function pesertaKolokium()

@@ -128,7 +128,7 @@ class UserController extends Controller
 
     /**
      * Daftar mahasiswa (selain diri sendiri) — bisa diakses semua role yang login.
-     * Dipakai untuk dropdown "Mahasiswa Pembahas" di form daftar kolokium/seminar.
+     * 
      */
     public function mahasiswaList(Request $request)
     {

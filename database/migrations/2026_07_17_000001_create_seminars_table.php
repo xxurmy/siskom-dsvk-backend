@@ -13,7 +13,6 @@ return new class extends Migration
 
             $table->foreignId('mahasiswa_id')->constrained('users')->cascadeOnDelete();
             $table->foreignId('moderator_id')->nullable()->constrained('users')->nullOnDelete();
-            $table->foreignId('pembahas_id')->nullable()->constrained('users')->nullOnDelete();
 
             $table->string('nama');
             $table->string('nim');
@@ -24,7 +23,6 @@ return new class extends Migration
             $table->string('lokasi')->nullable();
             $table->date('tanggal')->nullable();
             $table->string('waktu')->nullable();
-            $table->string('namapembahas')->nullable();
             $table->string('namadosenmoderator')->nullable();
             $table->string('ruangan')->nullable();
 
