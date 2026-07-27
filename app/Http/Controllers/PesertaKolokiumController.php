@@ -14,15 +14,11 @@ class PesertaKolokiumController extends Controller
     {
         $user = $request->user();
         if (! $user) {
-            return response()->json([
-                'message' => 'User tidak ditemukan',
-            ], 404);
+            return response()->json(['message' => 'User tidak ditemukan'], 404);
         }
 
         if ($user->role !== 'admin' && $user->role !== 'dosen') {
-            return response()->json([
-                'message' => 'Unauthorized',
-            ], 403);
+            return response()->json(['message' => 'Unauthorized'], 403);
         }
 
         $pesertaKolokiums = PesertaKolokium::get();
@@ -37,25 +33,17 @@ class PesertaKolokiumController extends Controller
     {
         $user = $request->user();
         if (! $user) {
-            return response()->json([
-                'message' => 'User tidak ditemukan',
-            ], 404);
+            return response()->json(['message' => 'User tidak ditemukan'], 404);
         }
 
         if ($user->role !== 'admin' && $user->role !== 'dosen') {
-            return response()->json([
-                'message' => 'Unauthorized',
-            ], 403);
+            return response()->json(['message' => 'Unauthorized'], 403);
         }
 
-        $pesertaKolokiums = PesertaKolokium::where('kolokium_id', $id)
-            ->where('kolokium_id', $id)
-            ->get();
+        $pesertaKolokiums = PesertaKolokium::where('kolokium_id', $id)->get();
 
         if ($pesertaKolokiums->isEmpty()) {
-            return response()->json([
-                'message' => 'Peserta kolokium tidak ditemukan',
-            ], 404);
+            return response()->json(['message' => 'Peserta kolokium tidak ditemukan'], 404);
         }
 
         return response()->json([
@@ -64,50 +52,85 @@ class PesertaKolokiumController extends Controller
         ]);
     }
 
+    /**
+     * SISI PEMBUAT KOLOKIUM (pemrasaran):
+     * Daftar peserta dari kolokium-kolokium yang SAYA buat, dipakai untuk
+     * melihat siapa saja yang sudah mendaftar hadir ke kolokium saya.
+     * GET /auth/peserta-kolokium/my-peserta
+     */
     public function myPesertaKolokium(Request $request)
     {
         $user = $request->user();
         if (! $user) {
-            return response()->json([
-                'message' => 'User tidak ditemukan',
-            ], 404);
+            return response()->json(['message' => 'User tidak ditemukan'], 404);
         }
 
         if ($user->role !== 'mahasiswa') {
-            return response()->json([
-                'message' => 'Unauthorized',
-            ], 403);
+            return response()->json(['message' => 'Unauthorized'], 403);
         }
 
         $pesertaKolokiums = PesertaKolokium::whereHas('kolokium', function ($query) use ($user) {
-            $query->where('mahasiswa_id', $user->id);
-        })->get();
+                $query->where('mahasiswa_id', $user->id);
+            })
+            ->with([
+                'mahasiswa:id,nama,nim,prodi',
+            ])
+            ->latest()
+            ->get();
 
         return response()->json([
-            'message' => 'Daftar anggota forum kolokium berhasil didapatkan',
+            'message' => 'Daftar peserta kolokium saya berhasil didapatkan',
             'peserta_kolokiums' => $pesertaKolokiums,
         ]);
     }
 
+    /**
+     * SISI PESERTA:
+     * Daftar kolokium yang SAYA ikuti sebagai peserta, lengkap dengan
+     * peserta_kolokium_id & status_kehadiran saya di masing-masing kolokium
+     * (baik "hadir" maupun "batal") — dipakai halaman Jadwal Kolokium untuk
+     * menentukan state tombol (Hadir / Hadir Ulang / badge Hadir).
+     * GET /auth/peserta-kolokium/my-kolokium
+     */
     public function myKolokiumPeserta(Request $request)
     {
         $user = $request->user();
         if (! $user) {
-            return response()->json([
-                'message' => 'User tidak ditemukan',
-            ], 404);
+            return response()->json(['message' => 'User tidak ditemukan'], 404);
         }
 
         if ($user->role !== 'mahasiswa') {
-            return response()->json([
-                'message' => 'Unauthorized',
-            ], 403);
+            return response()->json(['message' => 'Unauthorized'], 403);
         }
 
-        $kolokiums = Kolokium::whereHas('pesertaKolokium', function ($query) use ($user) {
-            $query->where('mahasiswa_id', $user->id)
-                ->where('status', 'hadir');
-        })->latest()->get();
+        $pesertaKolokiums = PesertaKolokium::where('mahasiswa_id', $user->id)
+            ->with('kolokium')
+            ->latest()
+            ->get();
+
+        $kolokiums = $pesertaKolokiums
+            ->filter(fn (PesertaKolokium $peserta) => $peserta->kolokium !== null)
+            ->map(function (PesertaKolokium $peserta) {
+                $kolokium = $peserta->kolokium;
+
+                return [
+                    'id'                  => $kolokium->id,
+                    'nama'                => $kolokium->nama,
+                    'nim'                 => $kolokium->nim,
+                    'prodi'               => $kolokium->prodi,
+                    'judul'               => $kolokium->judul,
+                    'tanggal'             => $kolokium->tanggal,
+                    'waktu'               => $kolokium->waktu,
+                    'ruangan'             => $kolokium->ruangan,
+                    'lokasi'              => $kolokium->lokasi,
+                    'namadosenpembimbing' => $kolokium->namadosenpembimbing,
+                    'namadosenmoderator'  => $kolokium->namadosenmoderator,
+                    'jumlahforum'         => $kolokium->jumlahforum,
+                    'peserta_kolokium_id' => $peserta->id,
+                    'status_kehadiran'    => $peserta->status, // "hadir" | "batal"
+                ];
+            })
+            ->values();
 
         return response()->json([
             'message' => 'Daftar kolokium yang diikuti berhasil didapatkan',
@@ -119,15 +142,11 @@ class PesertaKolokiumController extends Controller
     {
         $user = $request->user();
         if (! $user) {
-            return response()->json([
-                'message' => 'User tidak ditemukan',
-            ], 404);
+            return response()->json(['message' => 'User tidak ditemukan'], 404);
         }
 
         if ($user->role !== 'mahasiswa') {
-            return response()->json([
-                'message' => 'Unauthorized',
-            ], 403);
+            return response()->json(['message' => 'Unauthorized'], 403);
         }
 
         $validated = $request->validate([
@@ -136,26 +155,27 @@ class PesertaKolokiumController extends Controller
 
         $kolokium = Kolokium::find($validated['kolokium_id']);
         if (! $kolokium) {
-            return response()->json([
-                'message' => 'Kolokium tidak ditemukan',
-            ], 404);
+            return response()->json(['message' => 'Kolokium tidak ditemukan'], 404);
         }
 
         if ($kolokium->status !== 'approved') {
-            return response()->json([
-                'message' => 'Kolokium belum approved',
-            ], 422);
+            return response()->json(['message' => 'Kolokium belum approved'], 422);
         }
 
         if (! $kolokium->tanggal) {
-            return response()->json([
-                'message' => 'Tanggal kolokium belum tersedia',
-            ], 422);
+            return response()->json(['message' => 'Tanggal kolokium belum tersedia'], 422);
         }
 
-        if (Carbon::today()->greaterThanOrEqualTo(Carbon::parse($kolokium->tanggal)->startOfDay())) {
+        $tanggalKolokium = Carbon::parse($kolokium->tanggal)->startOfDay();
+
+        if (Carbon::today()->greaterThanOrEqualTo($tanggalKolokium)) {
+            return response()->json(['message' => 'Mahasiswa hanya dapat hadir sebelum hari H'], 422);
+        }
+
+        // Pendaftaran hanya dibuka mulai H-1
+        if (Carbon::today()->lessThan($tanggalKolokium->copy()->subDay())) {
             return response()->json([
-                'message' => 'Mahasiswa hanya dapat hadir sebelum hari H',
+                'message' => 'Pendaftaran kehadiran baru dibuka H-1 sebelum jadwal kolokium',
             ], 422);
         }
 
@@ -170,9 +190,14 @@ class PesertaKolokiumController extends Controller
             ->first();
 
         if ($existingPeserta) {
+            return response()->json(['message' => 'Peserta kolokium sudah ada'], 409);
+        }
+
+        // Tidak boleh mendaftar hadir di 2 kolokium pada tanggal & waktu yang sama
+        if ($this->hasJadwalBentrok($user->id, $kolokium)) {
             return response()->json([
-                'message' => 'Peserta kolokium sudah ada',
-            ], 409);
+                'message' => 'Anda tidak bisa mendaftar hadir di kolokium ini karena bentrok jadwal dengan kolokium lain yang sudah Anda hadiri',
+            ], 422);
         }
 
         $peserta = PesertaKolokium::create([
@@ -187,9 +212,7 @@ class PesertaKolokiumController extends Controller
             ->where('status', 'hadir')
             ->count();
 
-        $kolokium->update([
-            'jumlahforum' => $jumlahForum,
-        ]);
+        $kolokium->update(['jumlahforum' => $jumlahForum]);
 
         return response()->json([
             'message' => 'Peserta kolokium berhasil dibuat',
@@ -209,15 +232,11 @@ class PesertaKolokiumController extends Controller
     {
         $user = $request->user();
         if (! $user) {
-            return response()->json([
-                'message' => 'User tidak ditemukan',
-            ], 404);
+            return response()->json(['message' => 'User tidak ditemukan'], 404);
         }
 
         if ($user->role !== 'mahasiswa') {
-            return response()->json([
-                'message' => 'Unauthorized',
-            ], 403);
+            return response()->json(['message' => 'Unauthorized'], 403);
         }
 
         $validated = $request->validate([
@@ -226,39 +245,49 @@ class PesertaKolokiumController extends Controller
 
         $peserta = PesertaKolokium::find($id);
         if (! $peserta) {
-            return response()->json([
-                'message' => 'Peserta kolokium tidak ditemukan',
-            ], 404);
+            return response()->json(['message' => 'Peserta kolokium tidak ditemukan'], 404);
+        }
+
+        // Pastikan record ini benar-benar milik mahasiswa yang sedang login
+        if ((int) $peserta->mahasiswa_id !== (int) $user->id) {
+            return response()->json(['message' => 'Unauthorized'], 403);
         }
 
         $kolokium = Kolokium::find($peserta->kolokium_id);
         if (! $kolokium) {
-            return response()->json([
-                'message' => 'Kolokium tidak ditemukan',
-            ], 404);
+            return response()->json(['message' => 'Kolokium tidak ditemukan'], 404);
         }
 
         if ($kolokium->status !== 'approved') {
-            return response()->json([
-                'message' => 'Kolokium belum approved',
-            ], 422);
+            return response()->json(['message' => 'Kolokium belum approved'], 422);
         }
 
         if (! $kolokium->tanggal) {
-            return response()->json([
-                'message' => 'Tanggal kolokium belum tersedia',
-            ], 422);
+            return response()->json(['message' => 'Tanggal kolokium belum tersedia'], 422);
         }
 
-        if (Carbon::today()->greaterThanOrEqualTo(Carbon::parse($kolokium->tanggal)->startOfDay())) {
-            return response()->json([
-                'message' => 'Perubahan status hanya dapat dilakukan sebelum hari H',
-            ], 422);
+        $tanggalKolokium = Carbon::parse($kolokium->tanggal)->startOfDay();
+
+        if (Carbon::today()->greaterThanOrEqualTo($tanggalKolokium)) {
+            return response()->json(['message' => 'Perubahan status hanya dapat dilakukan sebelum hari H'], 422);
         }
 
-        $peserta->update([
-            'status' => $validated['status'],
-        ]);
+        if ($validated['status'] === 'hadir') {
+            // "Hadir ulang" juga tunduk pada window H-1
+            if (Carbon::today()->lessThan($tanggalKolokium->copy()->subDay())) {
+                return response()->json([
+                    'message' => 'Pendaftaran kehadiran baru dibuka H-1 sebelum jadwal kolokium',
+                ], 422);
+            }
+
+            if ($this->hasJadwalBentrok($user->id, $kolokium, $peserta->id)) {
+                return response()->json([
+                    'message' => 'Anda tidak bisa hadir ulang di kolokium ini karena bentrok jadwal dengan kolokium lain yang sudah Anda hadiri',
+                ], 422);
+            }
+        }
+
+        $peserta->update(['status' => $validated['status']]);
 
         if ($validated['status'] === 'hadir') {
             $this->syncKartuKolokium($peserta);
@@ -270,11 +299,7 @@ class PesertaKolokiumController extends Controller
             ->where('status', 'hadir')
             ->count();
 
-        if ($kolokium) {
-            $kolokium->update([
-                'jumlahforum' => $jumlahForum,
-            ]);
-        }
+        $kolokium->update(['jumlahforum' => $jumlahForum]);
 
         return response()->json([
             'message' => 'Status peserta kolokium berhasil diperbarui',
@@ -290,6 +315,23 @@ class PesertaKolokiumController extends Controller
         ]);
     }
 
+    /**
+     * Cek apakah user sudah "hadir" di kolokium LAIN dengan tanggal & waktu
+     * yang sama dengan $kolokium (dipakai untuk mencegah bentrok jadwal).
+     */
+    private function hasJadwalBentrok(int $mahasiswaId, Kolokium $kolokium, ?int $excludePesertaId = null): bool
+    {
+        return PesertaKolokium::where('mahasiswa_id', $mahasiswaId)
+            ->where('status', 'hadir')
+            ->when($excludePesertaId, fn ($query) => $query->where('id', '!=', $excludePesertaId))
+            ->whereHas('kolokium', function ($query) use ($kolokium) {
+                $query->where('id', '!=', $kolokium->id)
+                    ->where('tanggal', $kolokium->tanggal)
+                    ->where('waktu', $kolokium->waktu);
+            })
+            ->exists();
+    }
+
     private function syncKartuKolokium(PesertaKolokium $peserta): void
     {
         $peserta->loadMissing(['kolokium.moderator', 'kolokium.mahasiswa', 'mahasiswa']);
@@ -299,9 +341,7 @@ class PesertaKolokiumController extends Controller
         }
 
         KartuKolokium::updateOrCreate(
-            [
-                'peserta_kolokium_id' => $peserta->id,
-            ],
+            ['peserta_kolokium_id' => $peserta->id],
             [
                 'kolokium_id' => $peserta->kolokium_id,
                 'pemrasaran_id' => $peserta->kolokium->mahasiswa_id,

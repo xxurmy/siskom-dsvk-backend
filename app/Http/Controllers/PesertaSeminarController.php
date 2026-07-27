@@ -14,15 +14,11 @@ class PesertaSeminarController extends Controller
     {
         $user = $request->user();
         if (! $user) {
-            return response()->json([
-                'message' => 'User tidak ditemukan',
-            ], 404);
+            return response()->json(['message' => 'User tidak ditemukan'], 404);
         }
 
         if ($user->role !== 'admin' && $user->role !== 'dosen') {
-            return response()->json([
-                'message' => 'Unauthorized',
-            ], 403);
+            return response()->json(['message' => 'Unauthorized'], 403);
         }
 
         $pesertaSeminars = PesertaSeminar::get();
@@ -37,25 +33,17 @@ class PesertaSeminarController extends Controller
     {
         $user = $request->user();
         if (! $user) {
-            return response()->json([
-                'message' => 'User tidak ditemukan',
-            ], 404);
+            return response()->json(['message' => 'User tidak ditemukan'], 404);
         }
 
         if ($user->role !== 'admin' && $user->role !== 'dosen') {
-            return response()->json([
-                'message' => 'Unauthorized',
-            ], 403);
+            return response()->json(['message' => 'Unauthorized'], 403);
         }
 
-        $pesertaSeminars = PesertaSeminar::where('seminar_id', $id)
-            ->where('seminar_id', $id)
-            ->get();
+        $pesertaSeminars = PesertaSeminar::where('seminar_id', $id)->get();
 
         if ($pesertaSeminars->isEmpty()) {
-            return response()->json([
-                'message' => 'Peserta seminar tidak ditemukan',
-            ], 404);
+            return response()->json(['message' => 'Peserta seminar tidak ditemukan'], 404);
         }
 
         return response()->json([
@@ -64,50 +52,85 @@ class PesertaSeminarController extends Controller
         ]);
     }
 
+    /**
+     * SISI PEMBUAT SEMINAR (pemrasaran):
+     * Daftar peserta dari seminar-seminar yang SAYA buat, dipakai untuk
+     * melihat siapa saja yang sudah mendaftar hadir ke seminar saya.
+     * GET /auth/peserta-seminar/my-peserta
+     */
     public function myPesertaSeminar(Request $request)
     {
         $user = $request->user();
         if (! $user) {
-            return response()->json([
-                'message' => 'User tidak ditemukan',
-            ], 404);
+            return response()->json(['message' => 'User tidak ditemukan'], 404);
         }
 
         if ($user->role !== 'mahasiswa') {
-            return response()->json([
-                'message' => 'Unauthorized',
-            ], 403);
+            return response()->json(['message' => 'Unauthorized'], 403);
         }
 
         $pesertaSeminars = PesertaSeminar::whereHas('seminar', function ($query) use ($user) {
-            $query->where('mahasiswa_id', $user->id);
-        })->get();
+                $query->where('mahasiswa_id', $user->id);
+            })
+            ->with([
+                'mahasiswa:id,nama,nim,prodi',
+            ])
+            ->latest()
+            ->get();
 
         return response()->json([
-            'message' => 'Daftar anggota forum seminar berhasil didapatkan',
+            'message' => 'Daftar peserta seminar saya berhasil didapatkan',
             'peserta_seminars' => $pesertaSeminars,
         ]);
     }
 
+    /**
+     * SISI PESERTA:
+     * Daftar seminar yang SAYA ikuti sebagai peserta, lengkap dengan
+     * peserta_seminar_id & status_kehadiran saya di masing-masing seminar
+     * (baik "hadir" maupun "batal") — dipakai halaman Jadwal Seminar untuk
+     * menentukan state tombol (Hadir / Hadir Ulang / badge Hadir).
+     * GET /auth/peserta-seminar/my-seminar
+     */
     public function mySeminarPeserta(Request $request)
     {
         $user = $request->user();
         if (! $user) {
-            return response()->json([
-                'message' => 'User tidak ditemukan',
-            ], 404);
+            return response()->json(['message' => 'User tidak ditemukan'], 404);
         }
 
         if ($user->role !== 'mahasiswa') {
-            return response()->json([
-                'message' => 'Unauthorized',
-            ], 403);
+            return response()->json(['message' => 'Unauthorized'], 403);
         }
 
-        $seminars = Seminar::whereHas('pesertaSeminar', function ($query) use ($user) {
-            $query->where('mahasiswa_id', $user->id)
-                ->where('status', 'hadir');
-        })->latest()->get();
+        $pesertaSeminars = PesertaSeminar::where('mahasiswa_id', $user->id)
+            ->with('seminar')
+            ->latest()
+            ->get();
+
+        $seminars = $pesertaSeminars
+            ->filter(fn (PesertaSeminar $peserta) => $peserta->seminar !== null)
+            ->map(function (PesertaSeminar $peserta) {
+                $seminar = $peserta->seminar;
+
+                return [
+                    'id'                  => $seminar->id,
+                    'nama'                => $seminar->nama,
+                    'nim'                 => $seminar->nim,
+                    'prodi'               => $seminar->prodi,
+                    'judul'               => $seminar->judul,
+                    'tanggal'             => $seminar->tanggal,
+                    'waktu'               => $seminar->waktu,
+                    'ruangan'             => $seminar->ruangan,
+                    'lokasi'              => $seminar->lokasi,
+                    'namadosenpembimbing' => $seminar->namadosenpembimbing,
+                    'namadosenmoderator'  => $seminar->namadosenmoderator,
+                    'jumlahforum'         => $seminar->jumlahforum,
+                    'peserta_seminar_id'  => $peserta->id,
+                    'status_kehadiran'    => $peserta->status, // "hadir" | "batal"
+                ];
+            })
+            ->values();
 
         return response()->json([
             'message' => 'Daftar seminar yang diikuti berhasil didapatkan',
@@ -119,15 +142,11 @@ class PesertaSeminarController extends Controller
     {
         $user = $request->user();
         if (! $user) {
-            return response()->json([
-                'message' => 'User tidak ditemukan',
-            ], 404);
+            return response()->json(['message' => 'User tidak ditemukan'], 404);
         }
 
         if ($user->role !== 'mahasiswa') {
-            return response()->json([
-                'message' => 'Unauthorized',
-            ], 403);
+            return response()->json(['message' => 'Unauthorized'], 403);
         }
 
         $validated = $request->validate([
@@ -136,26 +155,27 @@ class PesertaSeminarController extends Controller
 
         $seminar = Seminar::find($validated['seminar_id']);
         if (! $seminar) {
-            return response()->json([
-                'message' => 'Seminar tidak ditemukan',
-            ], 404);
+            return response()->json(['message' => 'Seminar tidak ditemukan'], 404);
         }
 
         if ($seminar->status !== 'approved') {
-            return response()->json([
-                'message' => 'Seminar belum approved',
-            ], 422);
+            return response()->json(['message' => 'Seminar belum approved'], 422);
         }
 
         if (! $seminar->tanggal) {
-            return response()->json([
-                'message' => 'Tanggal seminar belum tersedia',
-            ], 422);
+            return response()->json(['message' => 'Tanggal seminar belum tersedia'], 422);
         }
 
-        if (Carbon::today()->greaterThanOrEqualTo(Carbon::parse($seminar->tanggal)->startOfDay())) {
+        $tanggalSeminar = Carbon::parse($seminar->tanggal)->startOfDay();
+
+        if (Carbon::today()->greaterThanOrEqualTo($tanggalSeminar)) {
+            return response()->json(['message' => 'Mahasiswa hanya dapat hadir sebelum hari H'], 422);
+        }
+
+        // Pendaftaran hanya dibuka mulai H-1
+        if (Carbon::today()->lessThan($tanggalSeminar->copy()->subDay())) {
             return response()->json([
-                'message' => 'Mahasiswa hanya dapat hadir sebelum hari H',
+                'message' => 'Pendaftaran kehadiran baru dibuka H-1 sebelum jadwal seminar',
             ], 422);
         }
 
@@ -170,9 +190,14 @@ class PesertaSeminarController extends Controller
             ->first();
 
         if ($existingPeserta) {
+            return response()->json(['message' => 'Peserta seminar sudah ada'], 409);
+        }
+
+        // Tidak boleh mendaftar hadir di 2 seminar pada tanggal & waktu yang sama
+        if ($this->hasJadwalBentrok($user->id, $seminar)) {
             return response()->json([
-                'message' => 'Peserta seminar sudah ada',
-            ], 409);
+                'message' => 'Anda tidak bisa mendaftar hadir di seminar ini karena bentrok jadwal dengan seminar lain yang sudah Anda hadiri',
+            ], 422);
         }
 
         $peserta = PesertaSeminar::create([
@@ -187,9 +212,7 @@ class PesertaSeminarController extends Controller
             ->where('status', 'hadir')
             ->count();
 
-        $seminar->update([
-            'jumlahforum' => $jumlahForum,
-        ]);
+        $seminar->update(['jumlahforum' => $jumlahForum]);
 
         return response()->json([
             'message' => 'Peserta seminar berhasil dibuat',
@@ -209,15 +232,11 @@ class PesertaSeminarController extends Controller
     {
         $user = $request->user();
         if (! $user) {
-            return response()->json([
-                'message' => 'User tidak ditemukan',
-            ], 404);
+            return response()->json(['message' => 'User tidak ditemukan'], 404);
         }
 
         if ($user->role !== 'mahasiswa') {
-            return response()->json([
-                'message' => 'Unauthorized',
-            ], 403);
+            return response()->json(['message' => 'Unauthorized'], 403);
         }
 
         $validated = $request->validate([
@@ -226,39 +245,49 @@ class PesertaSeminarController extends Controller
 
         $peserta = PesertaSeminar::find($id);
         if (! $peserta) {
-            return response()->json([
-                'message' => 'Peserta seminar tidak ditemukan',
-            ], 404);
+            return response()->json(['message' => 'Peserta seminar tidak ditemukan'], 404);
+        }
+
+        // Pastikan record ini benar-benar milik mahasiswa yang sedang login
+        if ((int) $peserta->mahasiswa_id !== (int) $user->id) {
+            return response()->json(['message' => 'Unauthorized'], 403);
         }
 
         $seminar = Seminar::find($peserta->seminar_id);
         if (! $seminar) {
-            return response()->json([
-                'message' => 'Seminar tidak ditemukan',
-            ], 404);
+            return response()->json(['message' => 'Seminar tidak ditemukan'], 404);
         }
 
         if ($seminar->status !== 'approved') {
-            return response()->json([
-                'message' => 'Seminar belum approved',
-            ], 422);
+            return response()->json(['message' => 'Seminar belum approved'], 422);
         }
 
         if (! $seminar->tanggal) {
-            return response()->json([
-                'message' => 'Tanggal seminar belum tersedia',
-            ], 422);
+            return response()->json(['message' => 'Tanggal seminar belum tersedia'], 422);
         }
 
-        if (Carbon::today()->greaterThanOrEqualTo(Carbon::parse($seminar->tanggal)->startOfDay())) {
-            return response()->json([
-                'message' => 'Perubahan status hanya dapat dilakukan sebelum hari H',
-            ], 422);
+        $tanggalSeminar = Carbon::parse($seminar->tanggal)->startOfDay();
+
+        if (Carbon::today()->greaterThanOrEqualTo($tanggalSeminar)) {
+            return response()->json(['message' => 'Perubahan status hanya dapat dilakukan sebelum hari H'], 422);
         }
 
-        $peserta->update([
-            'status' => $validated['status'],
-        ]);
+        if ($validated['status'] === 'hadir') {
+            // "Hadir ulang" juga tunduk pada window H-1
+            if (Carbon::today()->lessThan($tanggalSeminar->copy()->subDay())) {
+                return response()->json([
+                    'message' => 'Pendaftaran kehadiran baru dibuka H-1 sebelum jadwal seminar',
+                ], 422);
+            }
+
+            if ($this->hasJadwalBentrok($user->id, $seminar, $peserta->id)) {
+                return response()->json([
+                    'message' => 'Anda tidak bisa hadir ulang di seminar ini karena bentrok jadwal dengan seminar lain yang sudah Anda hadiri',
+                ], 422);
+            }
+        }
+
+        $peserta->update(['status' => $validated['status']]);
 
         if ($validated['status'] === 'hadir') {
             $this->syncKartuSeminar($peserta);
@@ -270,11 +299,7 @@ class PesertaSeminarController extends Controller
             ->where('status', 'hadir')
             ->count();
 
-        if ($seminar) {
-            $seminar->update([
-                'jumlahforum' => $jumlahForum,
-            ]);
-        }
+        $seminar->update(['jumlahforum' => $jumlahForum]);
 
         return response()->json([
             'message' => 'Status peserta seminar berhasil diperbarui',
@@ -290,6 +315,23 @@ class PesertaSeminarController extends Controller
         ]);
     }
 
+    /**
+     * Cek apakah user sudah "hadir" di seminar LAIN dengan tanggal & waktu
+     * yang sama dengan $seminar (dipakai untuk mencegah bentrok jadwal).
+     */
+    private function hasJadwalBentrok(int $mahasiswaId, Seminar $seminar, ?int $excludePesertaId = null): bool
+    {
+        return PesertaSeminar::where('mahasiswa_id', $mahasiswaId)
+            ->where('status', 'hadir')
+            ->when($excludePesertaId, fn ($query) => $query->where('id', '!=', $excludePesertaId))
+            ->whereHas('seminar', function ($query) use ($seminar) {
+                $query->where('id', '!=', $seminar->id)
+                    ->where('tanggal', $seminar->tanggal)
+                    ->where('waktu', $seminar->waktu);
+            })
+            ->exists();
+    }
+
     private function syncKartuSeminar(PesertaSeminar $peserta): void
     {
         $peserta->loadMissing(['seminar.moderator', 'seminar.mahasiswa', 'mahasiswa']);
@@ -299,9 +341,7 @@ class PesertaSeminarController extends Controller
         }
 
         KartuSeminar::updateOrCreate(
-            [
-                'peserta_seminar_id' => $peserta->id,
-            ],
+            ['peserta_seminar_id' => $peserta->id],
             [
                 'seminar_id' => $peserta->seminar_id,
                 'pemrasaran_id' => $peserta->seminar->mahasiswa_id,
