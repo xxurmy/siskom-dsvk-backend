@@ -35,9 +35,28 @@ class KartuSeminarController extends Controller
             $query->where('moderator_id', $user->id);
         }
 
-        $kartuSeminars = $query->latest()->get()->map(function (KartuSeminar $kartuSeminar) use ($user) {
-            return $this->formatKartuSeminar($kartuSeminar, $user);
-        });
+        // SEARCH: satu kata kunci dicocokkan ke beberapa kolom sekaligus.
+        // Khusus dosen, ikut mencari di nama/nim forum (peserta yang hadir)
+        // karena kolom itu hanya relevan & ditampilkan untuk role dosen.
+        if ($request->filled('search')) {
+            $search = $request->search;
+
+            $query->where(function ($searchQuery) use ($search, $user) {
+                $searchQuery->where('namapemrasaran', 'like', "%{$search}%")
+                    ->orWhere('nimpemrasaran', 'like', "%{$search}%")
+                    ->orWhere('prodi', 'like', "%{$search}%")
+                    ->orWhere('moderator', 'like', "%{$search}%");
+
+                if ($user->role === 'dosen') {
+                    $searchQuery->orWhere('namaforum', 'like', "%{$search}%")
+                        ->orWhere('nimforum', 'like', "%{$search}%");
+                }
+            });
+        }
+
+        $kartuSeminars = $query->latest()
+            ->paginate(10)
+            ->through(fn (KartuSeminar $kartuSeminar) => $this->formatKartuSeminar($kartuSeminar, $user));
 
         return response()->json([
             'message' => 'Daftar kartu seminar berhasil didapatkan',

@@ -27,6 +27,25 @@ class SeminarController extends Controller
             $query->where('prodi', $request->prodi);
         }
 
+        // SEARCH: satu kata kunci dicocokkan ke beberapa kolom sekaligus
+        // (dipakai oleh fitur pencarian di halaman Jadwal Kolokium, baik
+        // untuk mahasiswa/dosen maupun admin).
+        if ($request->filled('search')) {
+            $search = $request->search;
+
+            $query->where(function ($searchQuery) use ($search) {
+                $searchQuery->where('nama', 'like', "%{$search}%")
+                    ->orWhere('nim', 'like', "%{$search}%")
+                    ->orWhere('prodi', 'like', "%{$search}%")
+                    ->orWhere('judul', 'like', "%{$search}%")
+                    ->orWhere('namadosenpembimbing', 'like', "%{$search}%")
+                    ->orWhere('namadosenmoderator', 'like', "%{$search}%")
+                    ->orWhere('namapembahas', 'like', "%{$search}%")
+                    ->orWhere('lokasi', 'like', "%{$search}%")
+                    ->orWhere('ruangan', 'like', "%{$search}%");
+            });
+        }
+
         return response()->json($query->latest()->paginate(10));
     }
 

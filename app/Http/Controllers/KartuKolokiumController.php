@@ -9,6 +9,15 @@ use Illuminate\Support\Carbon;
 
 class KartuKolokiumController extends Controller
 {
+    /**
+     * Daftar kartu kolokium milik user login (mahasiswa: sebagai pemrasaran
+     * di forum; dosen: sebagai moderator), dengan search & pagination.
+     *
+     * Query params yang didukung:
+     * - search : cari bebas di nama/nim pemrasaran, prodi, & moderator
+     *            (untuk dosen, ikut mencari di nama/nim forum/peserta juga)
+     * - page   : halaman ke berapa (Laravel paginator, 10 per halaman)
+     */
     public function my(Request $request)
     {
         $user = $request->user();
@@ -35,9 +44,28 @@ class KartuKolokiumController extends Controller
             $query->where('moderator_id', $user->id);
         }
 
-        $kartuKolokiums = $query->latest()->get()->map(function (KartuKolokium $kartuKolokium) use ($user) {
-            return $this->formatKartuKolokium($kartuKolokium, $user);
-        });
+        // SEARCH: satu kata kunci dicocokkan ke beberapa kolom sekaligus.
+        // Khusus dosen, ikut mencari di nama/nim forum (peserta yang hadir)
+        // karena kolom itu hanya relevan & ditampilkan untuk role dosen.
+        if ($request->filled('search')) {
+            $search = $request->search;
+
+            $query->where(function ($searchQuery) use ($search, $user) {
+                $searchQuery->where('namapemrasaran', 'like', "%{$search}%")
+                    ->orWhere('nimpemrasaran', 'like', "%{$search}%")
+                    ->orWhere('prodi', 'like', "%{$search}%")
+                    ->orWhere('moderator', 'like', "%{$search}%");
+
+                if ($user->role === 'dosen') {
+                    $searchQuery->orWhere('namaforum', 'like', "%{$search}%")
+                        ->orWhere('nimforum', 'like', "%{$search}%");
+                }
+            });
+        }
+
+        $kartuKolokiums = $query->latest()
+            ->paginate(10)
+            ->through(fn (KartuKolokium $kartuKolokium) => $this->formatKartuKolokium($kartuKolokium, $user));
 
         return response()->json([
             'message' => 'Daftar kartu kolokium berhasil didapatkan',

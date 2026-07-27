@@ -12,6 +12,12 @@ class KolokiumController extends Controller
 {
     /**
      * READ - semua user yang sudah login
+     *
+     * Query params yang didukung:
+     * - status : filter status ('pending' | 'approved' | 'rejected')
+     * - prodi  : filter prodi
+     * - search : cari bebas di kolom nama, nim, prodi, judul, dosen
+     *            pembimbing, dosen moderator, pembahas, lokasi, & ruangan
      */
     public function index(Request $request)
     {
@@ -29,6 +35,25 @@ class KolokiumController extends Controller
         }
         if ($request->has('prodi')) {
             $query->where('prodi', $request->prodi);
+        }
+
+        // SEARCH: satu kata kunci dicocokkan ke beberapa kolom sekaligus
+        // (dipakai oleh fitur pencarian di halaman Jadwal Kolokium, baik
+        // untuk mahasiswa/dosen maupun admin).
+        if ($request->filled('search')) {
+            $search = $request->search;
+
+            $query->where(function ($searchQuery) use ($search) {
+                $searchQuery->where('nama', 'like', "%{$search}%")
+                    ->orWhere('nim', 'like', "%{$search}%")
+                    ->orWhere('prodi', 'like', "%{$search}%")
+                    ->orWhere('judul', 'like', "%{$search}%")
+                    ->orWhere('namadosenpembimbing', 'like', "%{$search}%")
+                    ->orWhere('namadosenmoderator', 'like', "%{$search}%")
+                    ->orWhere('namapembahas', 'like', "%{$search}%")
+                    ->orWhere('lokasi', 'like', "%{$search}%")
+                    ->orWhere('ruangan', 'like', "%{$search}%");
+            });
         }
 
         return response()->json($query->latest()->paginate(10));
