@@ -11,13 +11,39 @@ use Illuminate\Support\Facades\Validator;
 class KolokiumController extends Controller
 {
     /**
+     * Jumlah data per halaman default & batas maksimal, dipakai bareng
+     * oleh index() & myKolokium() supaya konsisten dan tidak disalahgunakan
+     * (mis. per_page=999999 yang bikin query berat).
+     */
+    private const DEFAULT_PER_PAGE = 10;
+    private const MAX_PER_PAGE = 100;
+
+    /**
+     * Ambil & validasi nilai per_page dari query string.
+     * Kalau tidak dikirim / tidak valid -> pakai DEFAULT_PER_PAGE.
+     */
+    private function resolvePerPage(Request $request): int
+    {
+        $validator = Validator::make($request->all(), [
+            'per_page' => 'sometimes|integer|min:1|max:' . self::MAX_PER_PAGE,
+        ]);
+
+        if ($validator->fails()) {
+            return self::DEFAULT_PER_PAGE;
+        }
+
+        return $validator->validated()['per_page'] ?? self::DEFAULT_PER_PAGE;
+    }
+
+    /**
      * READ - semua user yang sudah login
      *
      * Query params yang didukung:
-     * - status : filter status ('pending' | 'approved' | 'rejected')
-     * - prodi  : filter prodi
-     * - search : cari bebas di kolom nama, nim, prodi, judul, dosen
-     *            pembimbing, dosen moderator, lokasi, & ruangan
+     * - status   : filter status ('pending' | 'approved' | 'rejected')
+     * - prodi    : filter prodi
+     * - search   : cari bebas di kolom nama, nim, prodi, judul, dosen
+     *              pembimbing, dosen moderator, lokasi, & ruangan
+     * - per_page : jumlah data per halaman (default 10, maksimal 100)
      */
     public function index(Request $request)
     {
@@ -55,11 +81,19 @@ class KolokiumController extends Controller
             });
         }
 
-        return response()->json($query->latest()->paginate(10));
+        $perPage = $this->resolvePerPage($request);
+
+        return response()->json(
+            $query->latest()->paginate($perPage)->withQueryString()
+        );
     }
 
     /**
      * GET MY KOLOKIUM - milik user yang sedang login
+     *
+     * Query params yang didukung:
+     * - status   : filter status ('pending' | 'approved' | 'rejected')
+     * - per_page : jumlah data per halaman (default 10, maksimal 100)
      */
     public function myKolokium(Request $request)
     {
@@ -87,7 +121,11 @@ class KolokiumController extends Controller
             $query->where('status', $request->status);
         }
 
-        return response()->json($query->latest()->paginate(10));
+        $perPage = $this->resolvePerPage($request);
+
+        return response()->json(
+            $query->latest()->paginate($perPage)->withQueryString()
+        );
     }
 
     public function show($id, Request $request)

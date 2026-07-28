@@ -9,6 +9,31 @@ use Illuminate\Support\Facades\Validator;
 
 class SeminarController extends Controller
 {
+    /**
+     * Jumlah data per halaman default & batas maksimal, dipakai bareng
+     * oleh index() & myKolokium() supaya konsisten dan tidak disalahgunakan
+     * (mis. per_page=999999 yang bikin query berat).
+     */
+    private const DEFAULT_PER_PAGE = 10;
+    private const MAX_PER_PAGE = 100;
+
+    /**
+     * Ambil & validasi nilai per_page dari query string.
+     * Kalau tidak dikirim / tidak valid -> pakai DEFAULT_PER_PAGE.
+     */
+    private function resolvePerPage(Request $request): int
+    {
+        $validator = Validator::make($request->all(), [
+            'per_page' => 'sometimes|integer|min:1|max:' . self::MAX_PER_PAGE,
+        ]);
+
+        if ($validator->fails()) {
+            return self::DEFAULT_PER_PAGE;
+        }
+
+        return $validator->validated()['per_page'] ?? self::DEFAULT_PER_PAGE;
+    }
+
     public function index(Request $request)
     {
         $user = $request->user();
@@ -45,7 +70,11 @@ class SeminarController extends Controller
             });
         }
 
-        return response()->json($query->latest()->paginate(10));
+        $perPage = $this->resolvePerPage($request);
+
+        return response()->json(
+            $query->latest()->paginate($perPage)->withQueryString()
+        );
     }
 
     public function mySeminar(Request $request)
@@ -74,7 +103,11 @@ class SeminarController extends Controller
             $query->where('status', $request->status);
         }
 
-        return response()->json($query->latest()->paginate(10));
+        $perPage = $this->resolvePerPage($request);
+
+        return response()->json(
+            $query->latest()->paginate($perPage)->withQueryString()
+        );
     }
 
     public function show($id, Request $request)
