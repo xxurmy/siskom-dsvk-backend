@@ -168,16 +168,12 @@ class PesertaSeminarController extends Controller
 
         $tanggalSeminar = Carbon::parse($seminar->tanggal)->startOfDay();
 
+        // Validasi: Maksimal H-1. Jika hari ini >= hari H, maka ditolak.
         if (Carbon::today()->greaterThanOrEqualTo($tanggalSeminar)) {
-            return response()->json(['message' => 'Mahasiswa hanya dapat hadir sebelum hari H'], 422);
+            return response()->json(['message' => 'Pendaftaran kehadiran maksimal dilakukan H-1 (hari pelaksanaan tidak bisa)'], 422);
         }
 
-        // Pendaftaran hanya dibuka mulai H-1
-        if (Carbon::today()->lessThan($tanggalSeminar->copy()->subDay())) {
-            return response()->json([
-                'message' => 'Pendaftaran kehadiran baru dibuka H-1 sebelum jadwal seminar',
-            ], 422);
-        }
+        // Blok validasi pendaftaran hanya dibuka mulai H-1 (lessThan) DIHAPUS di sini
 
         if ((int) $seminar->mahasiswa_id === (int) $user->id) {
             return response()->json([
@@ -268,18 +264,15 @@ class PesertaSeminarController extends Controller
 
         $tanggalSeminar = Carbon::parse($seminar->tanggal)->startOfDay();
 
+        // Validasi: Maksimal H-1. Jika hari ini >= hari H, maka ditolak.
         if (Carbon::today()->greaterThanOrEqualTo($tanggalSeminar)) {
-            return response()->json(['message' => 'Perubahan status hanya dapat dilakukan sebelum hari H'], 422);
+            return response()->json(['message' => 'Perubahan status hanya dapat dilakukan maksimal H-1 sebelum hari H'], 422);
         }
 
         if ($validated['status'] === 'hadir') {
-            // "Hadir ulang" juga tunduk pada window H-1
-            if (Carbon::today()->lessThan($tanggalSeminar->copy()->subDay())) {
-                return response()->json([
-                    'message' => 'Pendaftaran kehadiran baru dibuka H-1 sebelum jadwal seminar',
-                ], 422);
-            }
+            // Blok pengecekan H-1 (lessThan) DIHAPUS di sini agar bisa daftar kapan saja sebelum hari H
 
+            // Cek jadwal bentrok
             if ($this->hasJadwalBentrok($user->id, $seminar, $peserta->id)) {
                 return response()->json([
                     'message' => 'Anda tidak bisa hadir ulang di seminar ini karena bentrok jadwal dengan seminar lain yang sudah Anda hadiri',
