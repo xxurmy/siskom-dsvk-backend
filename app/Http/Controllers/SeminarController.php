@@ -86,7 +86,7 @@ class SeminarController extends Controller
             ], 404);
         }
 
-        $seminar = Seminar::find($id);
+        $seminar = Seminar::with('pembimbing')->find($id);
 
         if (! $seminar) {
             return response()->json(['message' => 'Seminar tidak ditemukan'], 404);
