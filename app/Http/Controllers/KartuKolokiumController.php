@@ -14,9 +14,13 @@ class KartuKolokiumController extends Controller
      * di forum; dosen: sebagai moderator), dengan search & pagination.
      *
      * Query params yang didukung:
-     * - search : cari bebas di nama/nim pemrasaran, prodi, & moderator
-     *            (untuk dosen, ikut mencari di nama/nim forum/peserta juga)
-     * - page   : halaman ke berapa (Laravel paginator, 10 per halaman)
+     * - search      : cari bebas di nama/nim pemrasaran, prodi, & moderator
+     *                 (untuk dosen, ikut mencari di nama/nim forum/peserta juga)
+     * - statusparaf : filter status ('pending' | 'signed' | 'absent') — dipakai
+     *                 mis. dashboard buat hitung "belum ditandatangani" secara
+     *                 akurat lewat meta `total` paginator, tanpa perlu fetch
+     *                 semua halaman ke client.
+     * - page        : halaman ke berapa (Laravel paginator, 10 per halaman)
      */
     public function my(Request $request)
     {
@@ -61,6 +65,13 @@ class KartuKolokiumController extends Controller
                         ->orWhere('nimforum', 'like', "%{$search}%");
                 }
             });
+        }
+
+        // FILTER STATUS: dipakai dashboard buat hitung "belum ditandatangani"
+        // secara akurat lewat meta `total` paginator, tanpa perlu fetch semua
+        // halaman ke client.
+        if ($request->filled('statusparaf')) {
+            $query->where('statusparaf', $request->statusparaf);
         }
 
         $kartuKolokiums = $query->latest()

@@ -54,6 +54,10 @@ class KartuSeminarController extends Controller
             });
         }
 
+        if ($request->filled('statusparaf')) {
+            $query->where('statusparaf', $request->statusparaf);
+        }
+
         $kartuSeminars = $query->latest()
             ->paginate(10)
             ->through(fn (KartuSeminar $kartuSeminar) => $this->formatKartuSeminar($kartuSeminar, $user));
