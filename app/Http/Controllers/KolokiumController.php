@@ -98,8 +98,8 @@ class KolokiumController extends Controller
                 'message' => 'User tidak ditemukan',
             ], 404);
         }
-
-        $kolokium = Kolokium::find($id);
+        
+        $kolokium = Kolokium::with('pembimbing')->find($id);
 
         if (! $kolokium) {
             return response()->json(['message' => 'Kolokium tidak ditemukan'], 404);
@@ -192,6 +192,7 @@ class KolokiumController extends Controller
     /**
      * UPDATE - hanya admin
      */
+    
     public function update(Request $request, $id)
     {
         $user = $request->user();
