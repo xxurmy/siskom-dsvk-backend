@@ -20,6 +20,9 @@ class KartuKolokiumController extends Controller
      *                 mis. dashboard buat hitung "belum ditandatangani" secara
      *                 akurat lewat meta `total` paginator, tanpa perlu fetch
      *                 semua halaman ke client.
+     * - hari_h      : kalau true (1), cuma ambil kartu yang tanggalnya sudah
+     *                 hari ini atau sebelumnya (dosen baru bisa tanda tangan
+     *                 kartu pada hari H atau setelahnya).
      * - page        : halaman ke berapa (Laravel paginator, 10 per halaman)
      */
     public function my(Request $request)
@@ -72,6 +75,16 @@ class KartuKolokiumController extends Controller
         // halaman ke client.
         if ($request->filled('statusparaf')) {
             $query->where('statusparaf', $request->statusparaf);
+        }
+
+        // FILTER HARI H: kalau true, cuma ambil kartu yang tanggalnya SUDAH
+        // hari ini atau sebelumnya. Dipakai dashboard buat "urgent count" —
+        // karena dosen baru bisa tanda tangan kartu pada hari H atau setelahnya
+        // (lihat pengecekan Carbon::today()->lt($tanggal) di updateStatusParaf()
+        // di bawah), jadi kartu pending yang tanggalnya masih di masa depan
+        // belum bisa ditindaklanjuti sama sekali dan tidak boleh dihitung urgent.
+        if ($request->boolean('hari_h')) {
+            $query->whereDate('tanggal', '<=', now()->toDateString());
         }
 
         $kartuKolokiums = $query->latest()

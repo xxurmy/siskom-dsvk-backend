@@ -58,6 +58,10 @@ class KartuSeminarController extends Controller
             $query->where('statusparaf', $request->statusparaf);
         }
 
+        if ($request->boolean('hari_h')) {
+            $query->whereDate('tanggal', '<=', now()->toDateString());
+        }
+
         $kartuSeminars = $query->latest()
             ->paginate(10)
             ->through(fn (KartuSeminar $kartuSeminar) => $this->formatKartuSeminar($kartuSeminar, $user));
