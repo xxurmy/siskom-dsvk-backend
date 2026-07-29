@@ -328,6 +328,25 @@ class KolokiumController extends Controller
             unset($data['pembimbing_id']);
         }
 
+        // VALIDASI TAMBAHAN: kolokium tidak boleh di-approve kalau dosen
+        // moderator dan ruangan belum lengkap — baik yang sudah tersimpan
+        // sebelumnya di database, maupun yang baru dikirim di request ini.
+        if (($data['status'] ?? null) === 'approved') {
+            $finalModeratorId = array_key_exists('moderator_id', $data)
+                ? $data['moderator_id']
+                : $kolokium->moderator_id;
+
+            $finalRuangan = array_key_exists('ruangan', $data)
+                ? $data['ruangan']
+                : $kolokium->ruangan;
+
+            if (empty($finalModeratorId) || empty($finalRuangan)) {
+                return response()->json([
+                    'message' => 'Kolokium tidak dapat disetujui karena data dosen moderator dan/atau ruangan belum lengkap',
+                ], 422);
+            }
+        }
+
         $kolokium->update($data);
 
         return response()->json([

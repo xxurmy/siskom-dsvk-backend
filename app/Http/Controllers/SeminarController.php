@@ -11,7 +11,7 @@ class SeminarController extends Controller
 {
     /**
      * Jumlah data per halaman default & batas maksimal, dipakai bareng
-     * oleh index() & myKolokium() supaya konsisten dan tidak disalahgunakan
+     * oleh index() & mySeminar() supaya konsisten dan tidak disalahgunakan
      * (mis. per_page=999999 yang bikin query berat).
      */
     private const DEFAULT_PER_PAGE = 10;
@@ -53,7 +53,7 @@ class SeminarController extends Controller
         }
 
         // SEARCH: satu kata kunci dicocokkan ke beberapa kolom sekaligus
-        // (dipakai oleh fitur pencarian di halaman Jadwal Kolokium, baik
+        // (dipakai oleh fitur pencarian di halaman Jadwal Seminar, baik
         // untuk mahasiswa/dosen maupun admin).
         if ($request->filled('search')) {
             $search = $request->search;
@@ -300,6 +300,25 @@ class SeminarController extends Controller
 
             $data['namadosenpembimbing'] = $pembimbingUsers->pluck('nama')->implode(' & ');
             unset($data['pembimbing_id']);
+        }
+        
+        // VALIDASI TAMBAHAN: seminar tidak boleh di-approve kalau dosen
+        // moderator dan ruangan belum lengkap — baik yang sudah tersimpan
+        // sebelumnya di database, maupun yang baru dikirim di request ini.
+        if (($data['status'] ?? null) === 'approved') {
+            $finalModeratorId = array_key_exists('moderator_id', $data)
+                ? $data['moderator_id']
+                : $seminar->moderator_id;
+
+            $finalRuangan = array_key_exists('ruangan', $data)
+                ? $data['ruangan']
+                : $seminar->ruangan;
+
+            if (empty($finalModeratorId) || empty($finalRuangan)) {
+                return response()->json([
+                    'message' => 'Seminar tidak dapat disetujui karena data dosen moderator dan/atau ruangan belum lengkap',
+                ], 422);
+            }
         }
 
         $seminar->update($data);
