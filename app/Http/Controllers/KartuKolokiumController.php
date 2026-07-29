@@ -6,9 +6,35 @@ use App\Models\KartuKolokium;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\Validator;
 
 class KartuKolokiumController extends Controller
 {
+    /**
+     * Jumlah data per halaman default & batas maksimal, konsisten dengan
+     * KolokiumController supaya per_page tidak disalahgunakan (mis.
+     * per_page=999999 yang bikin query berat).
+     */
+    private const DEFAULT_PER_PAGE = 10;
+    private const MAX_PER_PAGE = 100;
+
+    /**
+     * Ambil & validasi nilai per_page dari query string.
+     * Kalau tidak dikirim / tidak valid -> pakai DEFAULT_PER_PAGE.
+     */
+    private function resolvePerPage(Request $request): int
+    {
+        $validator = Validator::make($request->all(), [
+            'per_page' => 'sometimes|integer|min:1|max:' . self::MAX_PER_PAGE,
+        ]);
+
+        if ($validator->fails()) {
+            return self::DEFAULT_PER_PAGE;
+        }
+
+        return $validator->validated()['per_page'] ?? self::DEFAULT_PER_PAGE;
+    }
+
     /**
      * Daftar kartu kolokium milik user login (mahasiswa: sebagai pemrasaran
      * di forum; dosen: sebagai moderator), dengan search & pagination.
@@ -23,7 +49,8 @@ class KartuKolokiumController extends Controller
      * - hari_h      : kalau true (1), cuma ambil kartu yang tanggalnya sudah
      *                 hari ini atau sebelumnya (dosen baru bisa tanda tangan
      *                 kartu pada hari H atau setelahnya).
-     * - page        : halaman ke berapa (Laravel paginator, 10 per halaman)
+     * - page        : halaman ke berapa (Laravel paginator)
+     * - per_page    : jumlah data per halaman (default 10, maksimal 100)
      */
     public function my(Request $request)
     {
@@ -87,8 +114,11 @@ class KartuKolokiumController extends Controller
             $query->whereDate('tanggal', '<=', now()->toDateString());
         }
 
+        $perPage = $this->resolvePerPage($request);
+
         $kartuKolokiums = $query->latest()
-            ->paginate(10)
+            ->paginate($perPage)
+            ->withQueryString()
             ->through(fn (KartuKolokium $kartuKolokium) => $this->formatKartuKolokium($kartuKolokium, $user));
 
         return response()->json([

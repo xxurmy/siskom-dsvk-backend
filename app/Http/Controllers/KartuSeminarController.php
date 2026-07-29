@@ -6,9 +6,26 @@ use App\Models\KartuSeminar;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\Validator;
 
 class KartuSeminarController extends Controller
 {
+    private const DEFAULT_PER_PAGE = 10;
+    private const MAX_PER_PAGE = 100;
+
+    private function resolvePerPage(Request $request): int
+    {
+        $validator = Validator::make($request->all(), [
+            'per_page' => 'sometimes|integer|min:1|max:' . self::MAX_PER_PAGE,
+        ]);
+
+        if ($validator->fails()) {
+            return self::DEFAULT_PER_PAGE;
+        }
+
+        return $validator->validated()['per_page'] ?? self::DEFAULT_PER_PAGE;
+    }
+
     public function my(Request $request)
     {
         $user = $request->user();
@@ -62,8 +79,11 @@ class KartuSeminarController extends Controller
             $query->whereDate('tanggal', '<=', now()->toDateString());
         }
 
+        $perPage = $this->resolvePerPage($request);
+
         $kartuSeminars = $query->latest()
-            ->paginate(10)
+            ->paginate($perPage)
+            ->withQueryString()
             ->through(fn (KartuSeminar $kartuSeminar) => $this->formatKartuSeminar($kartuSeminar, $user));
 
         return response()->json([
