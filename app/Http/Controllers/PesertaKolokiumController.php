@@ -119,7 +119,7 @@ class PesertaKolokiumController extends Controller
                     'nim'                 => $kolokium->nim,
                     'prodi'               => $kolokium->prodi,
                     'judul'               => $kolokium->judul,
-                    'tanggal'             => $kolokium->tanggal,
+                    'tanggal'             => $kolokium->tanggal?->format('Y-m-d'),
                     'waktu'               => $kolokium->waktu,
                     'ruangan'             => $kolokium->ruangan,
                     'lokasi'              => $kolokium->lokasi,

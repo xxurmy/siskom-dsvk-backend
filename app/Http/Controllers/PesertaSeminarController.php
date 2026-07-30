@@ -119,7 +119,7 @@ class PesertaSeminarController extends Controller
                     'nim'                 => $seminar->nim,
                     'prodi'               => $seminar->prodi,
                     'judul'               => $seminar->judul,
-                    'tanggal'             => $seminar->tanggal,
+                    'tanggal'             => $seminar->tanggal?->format('Y-m-d'),
                     'waktu'               => $seminar->waktu,
                     'ruangan'             => $seminar->ruangan,
                     'lokasi'              => $seminar->lokasi,
