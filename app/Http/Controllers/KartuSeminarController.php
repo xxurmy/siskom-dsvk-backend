@@ -175,7 +175,7 @@ class KartuSeminarController extends Controller
             'moderator_id' => $kartuSeminar->moderator_id,
             'peserta_seminar_id' => $kartuSeminar->peserta_seminar_id,
             'forum_id' => $kartuSeminar->forum_id,
-            'tanggal' => $kartuSeminar->tanggal,
+            'tanggal' => $kartuSeminar->tanggal?->format('Y-m-d'),
             'waktu' => $kartuSeminar->waktu,
             'namapemrasaran' => $kartuSeminar->namapemrasaran,
             'nimpemrasaran' => $kartuSeminar->nimpemrasaran,

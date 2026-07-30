@@ -210,7 +210,7 @@ class KartuKolokiumController extends Controller
             'moderator_id' => $kartuKolokium->moderator_id,
             'peserta_kolokium_id' => $kartuKolokium->peserta_kolokium_id,
             'forum_id' => $kartuKolokium->forum_id,
-            'tanggal' => $kartuKolokium->tanggal,
+            'tanggal' => $kartuKolokium->tanggal?->format('Y-m-d'),
             'waktu' => $kartuKolokium->waktu,
             'namapemrasaran' => $kartuKolokium->namapemrasaran,
             'nimpemrasaran' => $kartuKolokium->nimpemrasaran,
