@@ -30,7 +30,7 @@ class KartuKolokium extends Model
     ];
 
     protected $casts = [
-        'tanggal' => 'date',
+        'tanggal' => 'date:Y-m-d',
     ];
 
     public function kolokium()
