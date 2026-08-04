@@ -189,7 +189,7 @@ class UserController extends Controller
         }
 
         $request->validate([
-            'foto' => 'required|image|mimes:jpg,jpeg,png,webp|max:5120' // 5MB
+            'foto' => 'required|image|mimes:jpg,jpeg,png,webp|max:2048' // 2MB
         ]);
 
         if ($user->foto) {
