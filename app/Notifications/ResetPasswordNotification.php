@@ -26,8 +26,8 @@ class ResetPasswordNotification extends Notification implements ShouldQueue
 
     public function toMail($notifiable)
     {
-        $frontendUrl = config(env('URL_FRONTEND'));
-        $resetUrl = $frontendUrl . '/reset-password?token=' . $this->token . '&email=' . urlencode($notifiable->email);
+        $frontendUrl = env('URL_FRONTEND');
+        $resetUrl = "{$frontendUrl}reset-password?token={$this->token}&email=" . urlencode($notifiable->email);
 
         return (new MailMessage)
             ->subject('Reset Password Akun Anda')
