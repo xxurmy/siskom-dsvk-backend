@@ -19,6 +19,9 @@ Route::post('/login', [AuthController::class, 'login']);
 // Register (publik, admin tidak disediakan endpoint register karena biasanya dibuat manual/seeder)
 Route::post('/register/dosen', [RegisterController::class, 'registerDosen']);
 Route::post('/register/mahasiswa', [RegisterController::class, 'registerMahasiswa']);
+Route::post('/forgot-password', [AuthController::class, 'forgotPassword'])
+    ->middleware('throttle:3,1'); // maksimal 3 request per menit
+Route::post('/reset-password', [AuthController::class, 'resetPassword']);
 
 Route::prefix('auth')->middleware('auth:sanctum')->group(function () {
     Route::post('/logout', [AuthController::class, 'logout']);
