@@ -126,12 +126,10 @@ class AuthController extends Controller
 
         $user = User::where('email', $request->email)->first();
 
-        // Selalu return sukses walau email tidak ditemukan
-        // agar tidak bocor info akun mana yang terdaftar (enumeration attack)
         if (! $user) {
             return response()->json([
-                'message' => 'Jika email terdaftar, link reset password telah dikirim',
-            ]);
+                'message' => 'Email tidak ditemukan',
+            ], 404);
         }
 
         // Hapus token lama untuk email ini
@@ -150,7 +148,7 @@ class AuthController extends Controller
         $user->notify(new ResetPasswordNotification($token));
 
         return response()->json([
-            'message' => 'Jika email terdaftar, link reset password telah dikirim',
+            'message' => 'Link reset password telah dikirim ke email Anda',
         ]);
     }
 
