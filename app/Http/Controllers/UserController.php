@@ -8,9 +8,35 @@ use App\Models\KartuSeminar;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\Validator;
 
 class UserController extends Controller
 {
+    /**
+     * Jumlah data per halaman default & batas maksimal, dipakai oleh index()
+     * supaya konsisten dan tidak disalahgunakan (mis. per_page=999999 yang
+     * bikin query berat). Mengikuti pola yang sama seperti KolokiumController.
+     */
+    private const DEFAULT_PER_PAGE = 10;
+    private const MAX_PER_PAGE = 100;
+
+    /**
+     * Ambil & validasi nilai per_page dari query string.
+     * Kalau tidak dikirim / tidak valid -> pakai DEFAULT_PER_PAGE.
+     */
+    private function resolvePerPage(Request $request): int
+    {
+        $validator = Validator::make($request->all(), [
+            'per_page' => 'sometimes|integer|min:1|max:' . self::MAX_PER_PAGE,
+        ]);
+
+        if ($validator->fails()) {
+            return self::DEFAULT_PER_PAGE;
+        }
+
+        return $validator->validated()['per_page'] ?? self::DEFAULT_PER_PAGE;
+    }
+
     public function profile(Request $request)
     {
         $user = $request->user();
@@ -25,6 +51,16 @@ class UserController extends Controller
         ]);
     }
 
+    /**
+     * READ - admin only
+     *
+     * Query params yang didukung:
+     * - role     : filter role ('admin' | 'dosen' | 'mahasiswa')
+     * - prodi    : filter prodi
+     * - status   : filter status
+     * - search   : cari bebas di kolom nama, username, email, nim, & nip
+     * - per_page : jumlah data per halaman (default 10, maksimal 100)
+     */
     public function index(Request $request)
     {
         $user = $request->user();
@@ -40,7 +76,36 @@ class UserController extends Controller
             ], 403);
         }
 
-        $users = User::all()->map(function ($u) {
+        $query = User::query();
+
+        if ($request->has('role')) {
+            $query->where('role', $request->role);
+        }
+        if ($request->has('prodi')) {
+            $query->where('prodi', $request->prodi);
+        }
+        if ($request->has('status')) {
+            $query->where('status', $request->status);
+        }
+
+        // SEARCH: satu kata kunci dicocokkan ke beberapa kolom sekaligus
+        if ($request->filled('search')) {
+            $search = $request->search;
+
+            $query->where(function ($searchQuery) use ($search) {
+                $searchQuery->where('nama', 'like', "%{$search}%")
+                    ->orWhere('username', 'like', "%{$search}%")
+                    ->orWhere('email', 'like', "%{$search}%")
+                    ->orWhere('nim', 'like', "%{$search}%")
+                    ->orWhere('nip', 'like', "%{$search}%");
+            });
+        }
+
+        $perPage = $this->resolvePerPage($request);
+
+        $users = $query->latest()->paginate($perPage)->withQueryString();
+
+        $users->getCollection()->transform(function ($u) {
             return [
                 'id'       => $u->id,
                 'role'     => $u->role,
@@ -252,6 +317,60 @@ class UserController extends Controller
     }
 
     /**
+     * DELETE - hanya admin
+     * Admin tidak bisa menghapus akunnya sendiri lewat endpoint ini.
+     */
+    public function destroy($id, Request $request)
+    {
+        $user = $request->user();
+        if (! $user) {
+            return response()->json([
+                'message' => 'User tidak ditemukan',
+            ], 404);
+        }
+
+        if ($user->role !== 'admin') {
+            return response()->json([
+                'message' => 'Unauthorized',
+            ], 403);
+        }
+
+        $targetUser = User::find($id);
+
+        if (! $targetUser) {
+            return response()->json([
+                'message' => 'User tidak ditemukan',
+            ], 404);
+        }
+
+        if ($targetUser->id === $user->id) {
+            return response()->json([
+                'message' => 'Tidak dapat menghapus akun sendiri',
+            ], 422);
+        }
+
+        if ($targetUser->role === 'admin') {
+            return response()->json([
+                'message' => 'Tidak dapat menghapus akun admin lain',
+            ], 422);
+        }
+
+        // Bersihkan file terkait di Backblaze sebelum menghapus record
+        if ($targetUser->foto) {
+            Storage::disk('backblaze')->delete($this->extractPath($targetUser->foto));
+        }
+        if ($targetUser->tandatangan) {
+            Storage::disk('backblaze')->delete($this->extractPath($targetUser->tandatangan));
+        }
+
+        $targetUser->delete();
+
+        return response()->json([
+            'message' => 'User berhasil dihapus',
+        ]);
+    }
+
+    /**
      * Ambil kembali path relatif (mis. "profile-photos/xxx.jpg") dari URL lengkap
      * yang tersimpan di kolom foto/tandatangan, supaya bisa dipakai untuk delete di B2.
      */
@@ -278,7 +397,5 @@ class UserController extends Controller
         return $disk->response($path, null, [
             'Cache-Control' => 'public, max-age=604800', // 7 hari
         ]);
-    }
-
-    
+    }   
 }
