@@ -542,4 +542,59 @@ class KolokiumController extends Controller
             return $waktu;
         }
     }
+
+    public function exportDaftarHadirKolokium($id, Request $request)
+    {
+        $user = $request->user();
+        if (!$user) {
+            return response()->json(['message' => 'User tidak ditemukan'], 404);
+        }
+
+        $kolokium = Kolokium::with('pembimbing', 'moderator')->find($id);
+
+        if (! $kolokium) {
+            return response()->json(['message' => 'Kolokium tidak ditemukan'], 404);
+        }
+
+        $templatePath = storage_path('app/templates/kolokium-daftar-hadir.docx');
+        $template = new TemplateProcessor($templatePath);
+
+        // Identitas mahasiswa
+        $template->setValue('nama', $kolokium->nama ?? '-');
+        $template->setValue('nim', $kolokium->nim ?? '-');
+        $template->setValue('program_studi', $kolokium->prodi ?? '-');
+
+        // Hari, tanggal, jam, ruang
+        $template->setValue(
+            'hari',
+            $kolokium->tanggal ? $kolokium->tanggal->locale('id')->translatedFormat('l') : '-'
+        );
+        $template->setValue(
+            'tanggal',
+            $kolokium->tanggal ? $kolokium->tanggal->locale('id')->translatedFormat('d F Y') : '-'
+        );
+        $template->setValue('jam', $this->formatWaktuWib($kolokium->waktu));
+        $template->setValue('ruang', $kolokium->ruangan ?? $kolokium->lokasi ?? '-');
+
+        $template->setValue('judul_proposal', $kolokium->judul ?? '-');
+
+        // Nama tim penilai (urut sesuai pivot 'urutan')
+        $pembimbingUtama   = $kolokium->pembimbing->firstWhere('pivot.urutan', 1);
+        $pembimbingAnggota = $kolokium->pembimbing->firstWhere('pivot.urutan', 2);
+
+        $template->setValue('nama_pembimbing_utama', $pembimbingUtama->nama ?? '-');
+        $template->setValue('nama_pembimbing_anggota', $pembimbingAnggota->nama ?? '-');
+        $template->setValue('moderator', $kolokium->moderator->nama ?? $kolokium->namadosenmoderator ?? '-');
+
+        $fileName = 'daftar_hadir_kolokium_' . str_replace(' ', '_', $kolokium->nama) . '.docx';
+        $tempPath = storage_path('app/temp/' . $fileName);
+
+        if (! file_exists(storage_path('app/temp'))) {
+            mkdir(storage_path('app/temp'), 0755, true);
+        }
+
+        $template->saveAs($tempPath);
+
+        return response()->download($tempPath, $fileName)->deleteFileAfterSend(true);
+    }
 }
