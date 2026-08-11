@@ -383,4 +383,70 @@ class KolokiumController extends Controller
 
         return response()->json(['message' => 'Kolokium berhasil dihapus']);
     }
+
+    public function exportNilai($id, Request $request)
+    {
+        $user = $request->user();
+        if (!$user) {
+            return response()->json(['message' => 'User tidak ditemukan'], 404);
+        }
+
+        if ($user->role !== 'admin') {
+            return response()->json([
+                'message' => 'Unauthorized',
+            ], 403);
+        }
+
+        $kolokium = Kolokium::with('pembimbing', 'moderator')->find($id);
+
+        if (! $kolokium) {
+            return response()->json(['message' => 'Kolokium tidak ditemukan'], 404);
+        }
+
+        $jumlahPembimbing = $kolokium->pembimbing->count();
+
+        // Pilih template sesuai jumlah pembimbing
+        $templateFile = $jumlahPembimbing >= 2
+            ? 'rekap_nilai_kolokium_2.docx'
+            : 'rekap_nilai_kolokium_1.docx';
+
+        $templatePath = storage_path('app/templates/' . $templateFile);
+        $template = new TemplateProcessor($templatePath);
+
+        // Identitas
+        $template->setValue('nama', $kolokium->nama ?? '-');
+        $template->setValue('nim', $kolokium->nim ?? '-');
+        $template->setValue(
+            'hari_tanggal',
+            $kolokium->tanggal ? $kolokium->tanggal->translatedFormat('l, d F Y') : '-'
+        );
+        $template->setValue(
+            'waktu_tempat',
+            trim(($kolokium->waktu ?? '-') . ' / ' . ($kolokium->lokasi ?? $kolokium->ruangan ?? '-'))
+        );
+        $template->setValue('judul', $kolokium->judul ?? '-');
+
+        // Nama tim penilai (urut sesuai pivot 'urutan')
+        $pembimbingUtama   = $kolokium->pembimbing->firstWhere('pivot.urutan', 1);
+        $pembimbingAnggota = $kolokium->pembimbing->firstWhere('pivot.urutan', 2);
+
+        $template->setValue('nama_pembimbing_utama', $pembimbingUtama->nama ?? '-');
+
+        if ($jumlahPembimbing >= 2) {
+            $template->setValue('nama_pembimbing_anggota', $pembimbingAnggota->nama ?? '-');
+        }
+
+        $template->setValue('nama_moderator', $kolokium->moderator->nama ?? $kolokium->namadosenmoderator ?? '-');
+
+        $fileName = 'Rekap_Nilai_Kolokium_' . str_replace(' ', '_', $kolokium->nama) . '.docx';
+        $tempPath = storage_path('app/temp/' . $fileName);
+
+        if (! file_exists(storage_path('app/temp'))) {
+            mkdir(storage_path('app/temp'), 0755, true);
+        }
+
+        $template->saveAs($tempPath);
+
+        return response()->download($tempPath, $fileName)->deleteFileAfterSend(true);
+    }
 }

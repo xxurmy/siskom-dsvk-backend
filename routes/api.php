@@ -36,6 +36,9 @@ Route::prefix('auth')->middleware('auth:sanctum')->group(function () {
     Route::post('/profile/tandatangan', [UserController::class, 'uploadTandaTangan']);
     Route::post('/change-password', [AuthController::class, 'changePassword']);
 
+    // export nilai kolokium, hanya admin yang bisa
+    Route::get('/kolokium/{id}/export-nilai', [KolokiumController::class, 'exportNilai']);
+
     Route::get('/images/{path}', [UserController::class, 'showImage'])
     ->where('path', '.*'); // biar bisa tangkap path dengan folder, mis: profile-photos/xxx.jpg
     
