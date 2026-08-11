@@ -114,9 +114,15 @@ class KartuKolokiumController extends Controller
             $query->whereDate('tanggal', '<=', now()->toDateString());
         }
 
+        if ($user->role === 'dosen') {
+            $query->orderBy('tanggal', 'desc');
+        } else {
+            $query->orderBy('tanggal', 'asc');
+        }
+
         $perPage = $this->resolvePerPage($request);
 
-        $kartuKolokiums = $query->latest()
+        $kartuKolokiums = $query
             ->paginate($perPage)
             ->withQueryString()
             ->through(fn (KartuKolokium $kartuKolokium) => $this->formatKartuKolokium($kartuKolokium, $user));

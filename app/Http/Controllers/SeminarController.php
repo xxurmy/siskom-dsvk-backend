@@ -73,7 +73,7 @@ class SeminarController extends Controller
         $perPage = $this->resolvePerPage($request);
 
         return response()->json(
-            $query->latest()->paginate($perPage)->withQueryString()
+            $query->orderBy('tanggal', 'desc')->paginate($perPage)->withQueryString()
         );
     }
 
@@ -106,7 +106,7 @@ class SeminarController extends Controller
         $perPage = $this->resolvePerPage($request);
 
         return response()->json(
-            $query->latest()->paginate($perPage)->withQueryString()
+            $query->orderBy('tanggal', 'desc')->paginate($perPage)->withQueryString()
         );
     }
 
