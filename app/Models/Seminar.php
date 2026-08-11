@@ -61,4 +61,11 @@ class Seminar extends Model
     {
         return $this->hasMany(KartuSeminar::class);
     }
+    
+    public function getJumlahforumAttribute(): int
+    {
+        return $this->pesertaSeminar()
+            ->where('status', 'hadir')
+            ->count();
+    }
 }

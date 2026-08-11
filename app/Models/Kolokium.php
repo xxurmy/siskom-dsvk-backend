@@ -65,4 +65,11 @@ class Kolokium extends Model
     {
         return $this->hasMany(KartuKolokium::class);
     }
+
+    public function getJumlahforumAttribute(): int
+    {
+        return $this->pesertaKolokium()
+            ->where('status', 'hadir')
+            ->count();
+    }
 }
