@@ -38,6 +38,7 @@ Route::prefix('auth')->middleware('auth:sanctum')->group(function () {
 
     // export rekapitulasi nilai kolokium, hanya admin yang bisa
     Route::get('/kolokium/{id}/export-rekapitulasi-nilai-kolokium', [KolokiumController::class, 'exportRekapitulasiNilai']);
+    Route::get('/kolokium/{id}/export-lembar-penilaian', [KolokiumController::class, 'exportLembarPenilaian']);
 
     Route::get('/images/{path}', [UserController::class, 'showImage'])
     ->where('path', '.*'); // biar bisa tangkap path dengan folder, mis: profile-photos/xxx.jpg

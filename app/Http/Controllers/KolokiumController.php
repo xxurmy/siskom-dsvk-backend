@@ -473,4 +473,73 @@ class KolokiumController extends Controller
 
         return response()->download($tempPath, $fileName)->deleteFileAfterSend(true);
     }
+    public function exportLembarPenilaian($id, Request $request)
+    {
+        $user = $request->user();
+        if (!$user) {
+            return response()->json(['message' => 'User tidak ditemukan'], 404);
+        }
+
+        $kolokium = Kolokium::with('pembimbing', 'moderator')->find($id);
+
+        if (! $kolokium) {
+            return response()->json(['message' => 'Kolokium tidak ditemukan'], 404);
+        }
+
+        $templatePath = storage_path('app/templates/formulir_lembar_penilaian_kolokium.docx');
+        $template = new TemplateProcessor($templatePath);
+
+        // Identitas mahasiswa & kolokium
+        $template->setValue('nama', $kolokium->nama ?? '-');
+        $template->setValue('nim', $kolokium->nim ?? '-');
+        $template->setValue(
+            'hari_tanggal',
+            $kolokium->tanggal ? $kolokium->tanggal->locale('id')->translatedFormat('l, d F Y') : '-'
+        );
+        $template->setValue('waktu', $this->formatWaktuWib($kolokium->waktu));
+        $template->setValue('tempat', $kolokium->ruangan ?? $kolokium->lokasi ?? '-');
+        $template->setValue('judul_proposal', $kolokium->judul ?? '-');
+
+        // Tanggal tanda tangan = tanggal kolokium berlangsung, bukan tanggal hari ini
+        $template->setValue(
+            'tanggal',
+            $kolokium->tanggal ? $kolokium->tanggal->locale('id')->translatedFormat('d F Y') : '-'
+        );
+
+        // Nama tim penilai (urut sesuai pivot 'urutan')
+        $pembimbingUtama   = $kolokium->pembimbing->firstWhere('pivot.urutan', 1);
+        $pembimbingAnggota = $kolokium->pembimbing->firstWhere('pivot.urutan', 2);
+
+        $template->setValue('nama_pembimbing_utama', $pembimbingUtama->nama ?? '-');
+        $template->setValue('nama_pembimbing_anggota', $pembimbingAnggota->nama ?? '-');
+        $template->setValue('nama_moderator', $kolokium->moderator->nama ?? $kolokium->namadosenmoderator ?? '-');
+
+        $fileName = 'lembar_penilaian_kolokium_' . str_replace(' ', '_', $kolokium->nama) . '.docx';
+        $tempPath = storage_path('app/temp/' . $fileName);
+
+        if (! file_exists(storage_path('app/temp'))) {
+            mkdir(storage_path('app/temp'), 0755, true);
+        }
+
+        $template->saveAs($tempPath);
+
+        return response()->download($tempPath, $fileName)->deleteFileAfterSend(true);
+    }
+
+    private function formatWaktuWib(?string $waktu): string
+    {
+        if (empty($waktu)) {
+            return '-';
+        }
+
+        try {
+            $normalized = str_replace('.', ':', trim($waktu));
+            $mulai   = Carbon::createFromFormat('H:i', substr($normalized, 0, 5));
+            $selesai = $mulai->copy()->addHour();
+
+            return $mulai->format('H.i') . '-' . $selesai->format('H.i') . ' WIB';
+        } catch (\Exception $e) {
+            return $waktu;
+        }
+    }
 }
