@@ -92,6 +92,51 @@ class KartuSeminarController extends Controller
         ]);
     }
 
+    /**
+     * Daftar kartu seminar (peserta) untuk SATU seminar tertentu — dipakai
+     * halaman Absensi (dibuka dari tombol di baris Jadwal Seminar).
+     * Tidak dipaginate — halaman ini menampilkan semua peserta sekaligus.
+     *
+     * Diakses oleh:
+     * - admin: boleh lihat kartu seminar dari seminar manapun.
+     * - dosen: hanya boleh lihat kalau dia adalah moderator seminar tsb
+     */
+    public function bySeminar(Request $request, $seminarId)
+    {
+        $user = $request->user();
+        if (! $user) {
+            return response()->json([
+                'message' => 'User tidak ditemukan',
+            ], 404);
+        }
+
+        if (! in_array($user->role, ['admin', 'dosen'], true)) {
+            return response()->json([
+                'message' => 'Unauthorized',
+            ], 403);
+        }
+
+        $query = KartuSeminar::query()
+            ->where('seminar_id', $seminarId)
+            ->whereHas('pesertaSeminar', function ($pesertaQuery) {
+                $pesertaQuery->where('status', 'hadir');
+            });
+
+        if ($user->role === 'dosen') {
+            $query->where('moderator_id', $user->id);
+        }
+
+        $kartuSeminars = $query->orderBy('namaforum')
+            ->get()
+            ->map(fn (KartuSeminar $kartuSeminar) => $this->formatKartuSeminar($kartuSeminar, $user))
+            ->values();
+
+        return response()->json([
+            'message' => 'Daftar kartu seminar berhasil didapatkan',
+            'kartu_seminars' => $kartuSeminars,
+        ]);
+    }
+
     public function updateStatusParaf(Request $request, $id)
     {
         $user = $request->user();
@@ -166,6 +211,100 @@ class KartuSeminarController extends Controller
         ]);
     }
 
+    /**
+     * Update status paraf untuk BANYAK kartu seminar sekaligus — dipakai
+     * tombol "Simpan" di halaman Absensi.
+     */
+    public function bulkUpdateStatusParaf(Request $request)
+    {
+        $user = $request->user();
+        if (! $user) {
+            return response()->json([
+                'message' => 'User tidak ditemukan',
+            ], 404);
+        }
+
+        if (! in_array($user->role, ['admin', 'dosen'], true)) {
+            return response()->json([
+                'message' => 'Unauthorized',
+            ], 403);
+        }
+
+        $validated = $request->validate([
+            'items' => 'required|array|min:1',
+            'items.*.id' => 'required|integer|distinct|exists:kartu_seminars,id',
+            'items.*.statusparaf' => 'required|in:signed,absent',
+        ]);
+
+        $ids = collect($validated['items'])->pluck('id')->all();
+        $kartuSeminars = KartuSeminar::whereIn('id', $ids)->get()->keyBy('id');
+
+        $results = [];
+        $errors = [];
+
+        foreach ($validated['items'] as $item) {
+            $kartuSeminar = $kartuSeminars->get($item['id']);
+
+            if (! $kartuSeminar) {
+                $errors[] = ['id' => $item['id'], 'message' => 'Kartu seminar tidak ditemukan'];
+                continue;
+            }
+
+            if ($user->role === 'dosen' && (int) $kartuSeminar->moderator_id !== (int) $user->id) {
+                $errors[] = ['id' => $item['id'], 'message' => 'Unauthorized untuk kartu seminar ini'];
+                continue;
+            }
+
+            if (! $kartuSeminar->tanggal) {
+                $errors[] = ['id' => $item['id'], 'message' => 'Tanggal kartu seminar belum tersedia'];
+                continue;
+            }
+
+            if (Carbon::today()->lt(Carbon::parse($kartuSeminar->tanggal)->startOfDay())) {
+                $errors[] = ['id' => $item['id'], 'message' => 'Hanya dapat diproses pada hari H atau setelahnya'];
+                continue;
+            }
+
+            if ($kartuSeminar->statusparaf === 'signed') {
+                // Status final, tidak diubah — tetap dikembalikan sebagai "updated"
+                $results[] = $this->formatKartuSeminar($kartuSeminar, $user);
+                continue;
+            }
+
+            $updateData = [
+                'statusparaf' => $item['statusparaf'],
+                'tandatangandosen' => null,
+            ];
+
+            if ($item['statusparaf'] === 'signed') {
+                // Tanda tangan selalu diambil dari dosen MODERATOR kartu ini
+                $moderatorUser = ((int) $kartuSeminar->moderator_id === (int) $user->id)
+                    ? $user
+                    : User::find($kartuSeminar->moderator_id);
+
+                if (! $moderatorUser || empty($moderatorUser->tandatangan)) {
+                    $errors[] = ['id' => $item['id'], 'message' => 'Tanda tangan dosen moderator belum tersedia'];
+                    continue;
+                }
+
+                $updateData['tandatangandosen'] = $moderatorUser->tandatangan;
+            }
+
+            $kartuSeminar->update($updateData);
+            $results[] = $this->formatKartuSeminar($kartuSeminar->fresh(), $user);
+        }
+
+        $allFailed = count($results) === 0 && count($errors) > 0;
+
+        return response()->json([
+            'message' => empty($errors)
+                ? 'Status paraf kartu seminar berhasil diperbarui'
+                : ($allFailed ? 'Gagal memperbarui status paraf' : 'Sebagian data berhasil diperbarui, sebagian gagal'),
+            'updated' => $results,
+            'errors' => $errors,
+        ], $allFailed ? 422 : 200);
+    }
+
     private function formatKartuSeminar(KartuSeminar $kartuSeminar, User $user): array
     {
         $data = [
@@ -185,7 +324,8 @@ class KartuSeminarController extends Controller
             'statusparaf' => $kartuSeminar->statusparaf,
         ];
 
-        if ($user->role === 'dosen') {
+        // Kolom peserta (nama/nim forum) relevan untuk dosen & admin
+        if (in_array($user->role, ['dosen', 'admin'], true)) {
             $data['namaforum'] = $kartuSeminar->namaforum;
             $data['nimforum'] = $kartuSeminar->nimforum;
         }
