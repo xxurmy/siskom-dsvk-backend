@@ -67,6 +67,8 @@ Route::prefix('auth')->middleware('auth:sanctum')->group(function () {
 
     // KARTU KOLOKIUM
     Route::get('/kartu-kolokium/my', [KartuKolokiumController::class, 'my']);
+    Route::get('/kartu-kolokium/kolokium/{kolokiumId}', [KartuKolokiumController::class, 'byKolokium']);
+    Route::patch('/kartu-kolokium/bulk-status-paraf', [KartuKolokiumController::class, 'bulkUpdateStatusParaf']);
     Route::patch('/kartu-kolokium/{id}/status-paraf', [KartuKolokiumController::class, 'updateStatusParaf']);
 
     // PESERTA SEMINAR
