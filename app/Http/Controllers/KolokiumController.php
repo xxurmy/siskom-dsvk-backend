@@ -7,6 +7,8 @@ use App\Models\Kolokium;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
+use PhpOffice\PhpWord\TemplateProcessor;
+use Carbon\Carbon;
 
 class KolokiumController extends Controller
 {
@@ -416,13 +418,35 @@ class KolokiumController extends Controller
         // Identitas
         $template->setValue('nama', $kolokium->nama ?? '-');
         $template->setValue('nim', $kolokium->nim ?? '-');
+        // Format tanggal bahasa Indonesia
+        Carbon::setLocale('id');
+
         $template->setValue(
             'hari_tanggal',
-            $kolokium->tanggal ? $kolokium->tanggal->translatedFormat('l, d F Y') : '-'
+            $kolokium->tanggal
+                ? Carbon::parse($kolokium->tanggal)->translatedFormat('l, d F Y')
+                : '-'
         );
+
+        // Format waktu: mulai - selesai (1 jam) WIB
+        if ($kolokium->waktu) {
+            $mulai = Carbon::createFromFormat('H:i', $kolokium->waktu);
+
+            $selesai = $mulai->copy()->addHour();
+
+            $waktuTempat =
+            $mulai->format('H.i') .
+            '-' .
+            $selesai->format('H.i') .
+            ' WIB / ' .
+            ($kolokium->lokasi ?? $kolokium->ruangan ?? '-');
+        } else {
+            $waktuTempat = '- / ' . ($kolokium->lokasi ?? $kolokium->ruangan ?? '-');
+        }
+
         $template->setValue(
             'waktu_tempat',
-            trim(($kolokium->waktu ?? '-') . ' / ' . ($kolokium->lokasi ?? $kolokium->ruangan ?? '-'))
+            $waktuTempat
         );
         $template->setValue('judul', $kolokium->judul ?? '-');
 
