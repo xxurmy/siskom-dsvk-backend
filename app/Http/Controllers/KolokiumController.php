@@ -386,7 +386,7 @@ class KolokiumController extends Controller
         return response()->json(['message' => 'Kolokium berhasil dihapus']);
     }
 
-    public function exportNilai($id, Request $request)
+    public function exportRekapitulasiNilai($id, Request $request)
     {
         $user = $request->user();
         if (!$user) {
