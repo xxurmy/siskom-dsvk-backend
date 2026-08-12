@@ -58,6 +58,11 @@ Route::prefix('auth')->middleware('auth:sanctum')->group(function () {
     Route::get('/seminar/{id}', [SeminarController::class, 'show']);
     Route::post('/seminar', [SeminarController::class, 'store']);
 
+    // export file seminar, hanya admin yang bisa
+    Route::get('/seminar/{id}/export-rekapitulasi-nilai-seminar', [SeminarController::class, 'exportRekapitulasiNilai']);
+    Route::get('/seminar/{id}/export-lembar-penilaian', [SeminarController::class, 'exportLembarPenilaian']);
+    Route::get('/seminar/{id}/export-daftar-hadir-seminar', [SeminarController::class, 'exportDaftarHadirSeminar']);
+
     // PESERTA KOLOKIUM
     // Admin dan Dosen
     Route::get('/peserta-kolokium', [PesertaKolokiumController::class, 'index']);

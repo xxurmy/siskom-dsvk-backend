@@ -1,4 +1,5 @@
 <?php
+// app/Http/Controllers/SeminarController.php
 
 namespace App\Http\Controllers;
 
@@ -6,6 +7,8 @@ use App\Models\Seminar;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
+use PhpOffice\PhpWord\TemplateProcessor;
+use Carbon\Carbon;
 
 class SeminarController extends Controller
 {
@@ -34,10 +37,20 @@ class SeminarController extends Controller
         return $validator->validated()['per_page'] ?? self::DEFAULT_PER_PAGE;
     }
 
+    /**
+     * READ - semua user yang sudah login
+     *
+     * Query params yang didukung:
+     * - status   : filter status ('pending' | 'approved' | 'rejected')
+     * - prodi    : filter prodi
+     * - search   : cari bebas di kolom nama, nim, prodi, judul, dosen
+     *              pembimbing, dosen moderator, lokasi, & ruangan
+     * - per_page : jumlah data per halaman (default 10, maksimal 100)
+     */
     public function index(Request $request)
     {
         $user = $request->user();
-        if (! $user) {
+        if (!$user) {
             return response()->json([
                 'message' => 'User tidak ditemukan',
             ], 404);
@@ -77,10 +90,17 @@ class SeminarController extends Controller
         );
     }
 
+    /**
+     * GET MY SEMINAR - milik user yang sedang login
+     *
+     * Query params yang didukung:
+     * - status   : filter status ('pending' | 'approved' | 'rejected')
+     * - per_page : jumlah data per halaman (default 10, maksimal 100)
+     */
     public function mySeminar(Request $request)
     {
         $user = $request->user();
-        if (! $user) {
+        if (!$user) {
             return response()->json([
                 'message' => 'User tidak ditemukan',
             ], 404);
@@ -113,7 +133,7 @@ class SeminarController extends Controller
     public function show($id, Request $request)
     {
         $user = $request->user();
-        if (! $user) {
+        if (!$user) {
             return response()->json([
                 'message' => 'User tidak ditemukan',
             ], 404);
@@ -128,10 +148,14 @@ class SeminarController extends Controller
         return response()->json($seminar);
     }
 
+    /**
+     * CREATE - user yang sudah login
+     * mahasiswa_id otomatis dari user login, pembimbing wajib 1, boleh 2
+     */
     public function store(Request $request)
     {
         $user = $request->user();
-        if (! $user) {
+        if (!$user) {
             return response()->json([
                 'message' => 'User tidak ditemukan',
             ], 404);
@@ -201,14 +225,18 @@ class SeminarController extends Controller
 
         return response()->json([
             'message'  => 'Seminar berhasil dibuat',
-            'seminar' => $seminar,
+            'seminar'  => $seminar,
         ], 201);
     }
+
+    /**
+     * UPDATE - hanya admin
+     */
 
     public function update(Request $request, $id)
     {
         $user = $request->user();
-        if (! $user) {
+        if (!$user) {
             return response()->json([
                 'message' => 'User tidak ditemukan',
             ], 404);
@@ -301,7 +329,7 @@ class SeminarController extends Controller
             $data['namadosenpembimbing'] = $pembimbingUsers->pluck('nama')->implode(' & ');
             unset($data['pembimbing_id']);
         }
-        
+
         // VALIDASI TAMBAHAN: seminar tidak boleh di-approve kalau dosen
         // moderator dan ruangan belum lengkap — baik yang sudah tersimpan
         // sebelumnya di database, maupun yang baru dikirim di request ini.
@@ -325,14 +353,17 @@ class SeminarController extends Controller
 
         return response()->json([
             'message'  => 'Seminar berhasil diperbarui',
-            'seminar' => $seminar,
+            'seminar'  => $seminar,
         ]);
     }
 
+    /**
+     * DELETE - hanya admin
+     */
     public function destroy($id, Request $request)
     {
         $user = $request->user();
-        if (! $user) {
+        if (!$user) {
             return response()->json([
                 'message' => 'User tidak ditemukan',
             ], 404);
@@ -350,8 +381,221 @@ class SeminarController extends Controller
             return response()->json(['message' => 'Seminar tidak ditemukan'], 404);
         }
 
-        $seminar->delete();
+        $seminar->delete(); // pivot ikut terhapus (cascadeOnDelete)
 
         return response()->json(['message' => 'Seminar berhasil dihapus']);
+    }
+
+    public function exportRekapitulasiNilai($id, Request $request)
+    {
+        $user = $request->user();
+        if (!$user) {
+            return response()->json(['message' => 'User tidak ditemukan'], 404);
+        }
+
+        if ($user->role !== 'admin') {
+            return response()->json([
+                'message' => 'Unauthorized',
+            ], 403);
+        }
+
+        $seminar = Seminar::with('pembimbing', 'moderator')->find($id);
+
+        if (! $seminar) {
+            return response()->json(['message' => 'Seminar tidak ditemukan'], 404);
+        }
+
+        $jumlahPembimbing = $seminar->pembimbing->count();
+
+        // Pilih template sesuai jumlah pembimbing
+        $templateFile = $jumlahPembimbing >= 2
+            ? 'rekap_nilai_seminar_2.docx'
+            : 'rekap_nilai_seminar_1.docx';
+
+        $templatePath = storage_path('app/templates/' . $templateFile);
+        $template = new TemplateProcessor($templatePath);
+
+        // Identitas
+        $template->setValue('nama', $seminar->nama ?? '-');
+        $template->setValue('nim', $seminar->nim ?? '-');
+        // Format tanggal bahasa Indonesia
+        Carbon::setLocale('id');
+
+        $template->setValue(
+            'hari_tanggal',
+            $seminar->tanggal
+                ? Carbon::parse($seminar->tanggal)->translatedFormat('l, d F Y')
+                : '-'
+        );
+
+        // Format waktu: mulai - selesai (1 jam) WIB
+        if ($seminar->waktu) {
+            $mulai = Carbon::createFromFormat('H:i', $seminar->waktu);
+
+            $selesai = $mulai->copy()->addHour();
+
+            $waktuTempat =
+            $mulai->format('H.i') .
+            '-' .
+            $selesai->format('H.i') .
+            ' WIB / ' .
+            ($seminar->lokasi ?? $seminar->ruangan ?? '-');
+        } else {
+            $waktuTempat = '- / ' . ($seminar->lokasi ?? $seminar->ruangan ?? '-');
+        }
+
+        $template->setValue(
+            'waktu_tempat',
+            $waktuTempat
+        );
+        $template->setValue('judul', $seminar->judul ?? '-');
+
+        // Nama tim penilai (urut sesuai pivot 'urutan')
+        $pembimbingUtama   = $seminar->pembimbing->firstWhere('pivot.urutan', 1);
+        $pembimbingAnggota = $seminar->pembimbing->firstWhere('pivot.urutan', 2);
+
+        $template->setValue('nama_pembimbing_utama', $pembimbingUtama->nama ?? '-');
+
+        if ($jumlahPembimbing >= 2) {
+            $template->setValue('nama_pembimbing_anggota', $pembimbingAnggota->nama ?? '-');
+        }
+
+        $template->setValue('nama_moderator', $seminar->moderator->nama ?? $seminar->namadosenmoderator ?? '-');
+
+        $fileName = 'Rekap_Nilai_Seminar_' . str_replace(' ', '_', $seminar->nama) . '.docx';
+        $tempPath = storage_path('app/temp/' . $fileName);
+
+        if (! file_exists(storage_path('app/temp'))) {
+            mkdir(storage_path('app/temp'), 0755, true);
+        }
+
+        $template->saveAs($tempPath);
+
+        return response()->download($tempPath, $fileName)->deleteFileAfterSend(true);
+    }
+    public function exportLembarPenilaian($id, Request $request)
+    {
+        $user = $request->user();
+        if (!$user) {
+            return response()->json(['message' => 'User tidak ditemukan'], 404);
+        }
+
+        $seminar = Seminar::with('pembimbing', 'moderator')->find($id);
+
+        if (! $seminar) {
+            return response()->json(['message' => 'Seminar tidak ditemukan'], 404);
+        }
+
+        $templatePath = storage_path('app/templates/formulir_lembar_penilaian_seminar.docx');
+        $template = new TemplateProcessor($templatePath);
+
+        // Identitas mahasiswa & seminar
+        $template->setValue('nama', $seminar->nama ?? '-');
+        $template->setValue('nim', $seminar->nim ?? '-');
+        $template->setValue(
+            'hari_tanggal',
+            $seminar->tanggal ? $seminar->tanggal->locale('id')->translatedFormat('l, d F Y') : '-'
+        );
+        $template->setValue('waktu', $this->formatWaktuWib($seminar->waktu));
+        $template->setValue('tempat', $seminar->ruangan ?? $seminar->lokasi ?? '-');
+        $template->setValue('judul_proposal', $seminar->judul ?? '-');
+
+        // Tanggal tanda tangan = tanggal seminar berlangsung, bukan tanggal hari ini
+        $template->setValue(
+            'tanggal',
+            $seminar->tanggal ? $seminar->tanggal->locale('id')->translatedFormat('d F Y') : '-'
+        );
+
+        // Nama tim penilai (urut sesuai pivot 'urutan')
+        $pembimbingUtama   = $seminar->pembimbing->firstWhere('pivot.urutan', 1);
+        $pembimbingAnggota = $seminar->pembimbing->firstWhere('pivot.urutan', 2);
+
+        $template->setValue('nama_pembimbing_utama', $pembimbingUtama->nama ?? '-');
+        $template->setValue('nama_pembimbing_anggota', $pembimbingAnggota->nama ?? '-');
+        $template->setValue('nama_moderator', $seminar->moderator->nama ?? $seminar->namadosenmoderator ?? '-');
+
+        $fileName = 'lembar_penilaian_seminar_' . str_replace(' ', '_', $seminar->nama) . '.docx';
+        $tempPath = storage_path('app/temp/' . $fileName);
+
+        if (! file_exists(storage_path('app/temp'))) {
+            mkdir(storage_path('app/temp'), 0755, true);
+        }
+
+        $template->saveAs($tempPath);
+
+        return response()->download($tempPath, $fileName)->deleteFileAfterSend(true);
+    }
+
+    private function formatWaktuWib(?string $waktu): string
+    {
+        if (empty($waktu)) {
+            return '-';
+        }
+
+        try {
+            $normalized = str_replace('.', ':', trim($waktu));
+            $mulai   = Carbon::createFromFormat('H:i', substr($normalized, 0, 5));
+            $selesai = $mulai->copy()->addHour();
+
+            return $mulai->format('H.i') . '-' . $selesai->format('H.i') . ' WIB';
+        } catch (\Exception $e) {
+            return $waktu;
+        }
+    }
+
+    public function exportDaftarHadirSeminar($id, Request $request)
+    {
+        $user = $request->user();
+        if (!$user) {
+            return response()->json(['message' => 'User tidak ditemukan'], 404);
+        }
+
+        $seminar = Seminar::with('pembimbing', 'moderator')->find($id);
+
+        if (! $seminar) {
+            return response()->json(['message' => 'Seminar tidak ditemukan'], 404);
+        }
+
+        $templatePath = storage_path('app/templates/seminar-daftar-hadir.docx');
+        $template = new TemplateProcessor($templatePath);
+
+        // Identitas mahasiswa
+        $template->setValue('nama', $seminar->nama ?? '-');
+        $template->setValue('nim', $seminar->nim ?? '-');
+        $template->setValue('program_studi', $seminar->prodi ?? '-');
+
+        // Hari, tanggal, jam, ruang
+        $template->setValue(
+            'hari',
+            $seminar->tanggal ? $seminar->tanggal->locale('id')->translatedFormat('l') : '-'
+        );
+        $template->setValue(
+            'tanggal',
+            $seminar->tanggal ? $seminar->tanggal->locale('id')->translatedFormat('d F Y') : '-'
+        );
+        $template->setValue('jam', $this->formatWaktuWib($seminar->waktu));
+        $template->setValue('ruang', $seminar->ruangan ?? $seminar->lokasi ?? '-');
+
+        $template->setValue('judul_proposal', $seminar->judul ?? '-');
+
+        // Nama tim penilai (urut sesuai pivot 'urutan')
+        $pembimbingUtama   = $seminar->pembimbing->firstWhere('pivot.urutan', 1);
+        $pembimbingAnggota = $seminar->pembimbing->firstWhere('pivot.urutan', 2);
+
+        $template->setValue('nama_pembimbing_utama', $pembimbingUtama->nama ?? '-');
+        $template->setValue('nama_pembimbing_anggota', $pembimbingAnggota->nama ?? '-');
+        $template->setValue('moderator', $seminar->moderator->nama ?? $seminar->namadosenmoderator ?? '-');
+        $template->setValue('nip', $seminar->moderator->nip ?? '-');
+
+        $fileName = 'daftar_hadir_seminar_' . str_replace(' ', '_', $seminar->nama) . '.docx';
+        $tempPath = storage_path('app/temp/' . $fileName);
+
+        if (! file_exists(storage_path('app/temp'))) {
+            mkdir(storage_path('app/temp'), 0755, true);
+        }
+
+        $template->saveAs($tempPath);
+
+        return response()->download($tempPath, $fileName)->deleteFileAfterSend(true);
     }
 }
