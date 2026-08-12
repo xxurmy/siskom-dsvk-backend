@@ -498,7 +498,7 @@ class SeminarController extends Controller
         );
         $template->setValue('waktu', $this->formatWaktuWib($seminar->waktu));
         $template->setValue('tempat', $seminar->ruangan ?? $seminar->lokasi ?? '-');
-        $template->setValue('judul_proposal', $seminar->judul ?? '-');
+        $template->setValue('judul_skripsi', $seminar->judul ?? '-');
 
         // Tanggal tanda tangan = tanggal seminar berlangsung, bukan tanggal hari ini
         $template->setValue(
@@ -576,7 +576,7 @@ class SeminarController extends Controller
         $template->setValue('jam', $this->formatWaktuWib($seminar->waktu));
         $template->setValue('ruang', $seminar->ruangan ?? $seminar->lokasi ?? '-');
 
-        $template->setValue('judul_proposal', $seminar->judul ?? '-');
+        $template->setValue('judul_skripsi', $seminar->judul ?? '-');
 
         // Nama tim penilai (urut sesuai pivot 'urutan')
         $pembimbingUtama   = $seminar->pembimbing->firstWhere('pivot.urutan', 1);
