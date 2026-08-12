@@ -17,7 +17,7 @@ class RegisterController extends Controller
     {
         $validator = Validator::make($request->all(), [
             'nama'     => 'required|string|max:255',
-            'nip'      => 'required|string|unique:users,nip|max:50',
+            'nip'      => 'required|string|unique:users,nip|max:18',
             'username' => 'required|string|unique:users,username|max:50',
             'prodi'    => 'required|string|max:100',
             'email'    => 'required|email|unique:users,email|max:255',
@@ -61,7 +61,7 @@ class RegisterController extends Controller
     {
         $validator = Validator::make($request->all(), [
             'nama'     => 'required|string|max:255',
-            'nim'      => 'required|string|unique:users,nim|max:50',
+            'nim'      => 'required|string|unique:users,nim|max:11',
             'username' => 'required|string|unique:users,username|max:50',
             'prodi'    => 'required|string|max:100',
             'email'    => 'required|email|unique:users,email|max:255',
