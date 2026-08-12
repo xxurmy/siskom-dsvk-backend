@@ -48,6 +48,7 @@ Route::prefix('auth')->middleware('auth:sanctum')->group(function () {
     Route::get('/kolokium/{id}/export-rekapitulasi-nilai-kolokium', [KolokiumController::class, 'exportRekapitulasiNilai']);
     Route::get('/kolokium/{id}/export-lembar-penilaian', [KolokiumController::class, 'exportLembarPenilaian']);
     Route::get('/kolokium/{id}/export-daftar-hadir-kolokium', [KolokiumController::class, 'exportDaftarHadirKolokium']);
+    Route::get('/kolokium/{id}/export-berita-acara-kolokium', [KolokiumController::class, 'exportBeritaAcaraKolokium']);;
 
     // CREATE - hanya mahasiswa 
     Route::post('/kolokium', [KolokiumController::class, 'store']);

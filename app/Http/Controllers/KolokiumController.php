@@ -598,4 +598,131 @@ class KolokiumController extends Controller
 
         return response()->download($tempPath, $fileName)->deleteFileAfterSend(true);
     }
+
+
+    public function exportBeritaAcaraKolokium($id, Request $request)
+    {
+        $user = $request->user();
+        if (!$user) {
+            return response()->json(['message' => 'User tidak ditemukan'], 404);
+        }
+
+        $kolokium = Kolokium::with('pembimbing', 'moderator')->find($id);
+
+        if (! $kolokium) {
+            return response()->json(['message' => 'Kolokium tidak ditemukan'], 404);
+        }
+
+        $jumlahPembimbing = $kolokium->pembimbing->count();
+
+        $templateFile = $jumlahPembimbing >= 2
+            ? 'bap-kolokium-2.docx'
+            : 'bap-kolokium-1.docx';
+
+        $templatePath = storage_path('app/templates/' . $templateFile);
+        $template = new TemplateProcessor($templatePath);
+
+        $tanggalKolokium = $kolokium->tanggal ?? Carbon::now();
+
+        // Hari & tanggal (bahasa Indonesia)
+        $template->setValue('hari', $tanggalKolokium->locale('id')->translatedFormat('l'));
+        $template->setValue('tanggal', $tanggalKolokium->locale('id')->translatedFormat('d F Y'));
+
+        // Tahun akademik otomatis dari tanggal kolokium
+        $tahunAkademik = $this->getTahunAkademik($tanggalKolokium);
+        $template->setValue('tahun_akademik', $tahunAkademik);
+
+        // Semester (angka), dihitung dari angkatan NIM vs tanggal kolokium
+        $angkatan = $this->getAngkatanFromNim($kolokium->nim);
+        $semester = $this->getSemesterAngka($tanggalKolokium, $angkatan);
+        $template->setValue('semester', $semester ?? '-');
+
+        // Identitas mahasiswa
+        $template->setValue('nama', $kolokium->nama ?? '-');
+        $template->setValue('nim', $kolokium->nim ?? '-');
+        $template->setValue('judul_proposal', $kolokium->judul ?? '-');
+        $template->setValue('waktu', $this->formatWaktuWib($kolokium->waktu));
+        $template->setValue('tempat', $kolokium->ruangan ?? $kolokium->lokasi ?? '-');
+
+        // Tim penilai (urut sesuai pivot 'urutan')
+        $pembimbingUtama   = $kolokium->pembimbing->firstWhere('pivot.urutan', 1);
+        $pembimbingAnggota = $kolokium->pembimbing->firstWhere('pivot.urutan', 2);
+
+        $template->setValue('nama_pembimbing_utama', $pembimbingUtama->nama ?? '-');
+        $template->setValue('nip_pembimbing_utama', $pembimbingUtama->nip ?? '-');
+
+        if ($jumlahPembimbing >= 2) {
+            $template->setValue('nama_pembimbing_anggota', $pembimbingAnggota->nama ?? '-');
+            $template->setValue('nip_pembimbing_anggota', $pembimbingAnggota->nip ?? '-');
+        }
+
+        $template->setValue('moderator', $kolokium->moderator->nama ?? $kolokium->namadosenmoderator ?? '-');
+        $template->setValue('nip_moderator', $kolokium->moderator->nip ?? '-');
+
+        $fileName = 'bap_kolokium_' . str_replace(' ', '_', $kolokium->nama) . '.docx';
+        $tempPath = storage_path('app/temp/' . $fileName);
+
+        if (! file_exists(storage_path('app/temp'))) {
+            mkdir(storage_path('app/temp'), 0755, true);
+        }
+
+        $template->saveAs($tempPath);
+
+        return response()->download($tempPath, $fileName)->deleteFileAfterSend(true);
+    }
+
+    /**
+     * Ambil tahun angkatan dari NIM.
+     * Contoh: "E4401221027" -> 2 digit di posisi ke-6&7 ("22") -> 2022
+     */
+    private function getAngkatanFromNim(?string $nim): ?int
+    {
+        if (empty($nim) || strlen($nim) < 7) {
+            return null;
+        }
+
+        $duaDigit = substr($nim, 5, 2);
+
+        if (! ctype_digit($duaDigit)) {
+            return null;
+        }
+
+        return 2000 + (int) $duaDigit;
+    }
+
+    /**
+     * Hitung tahun akademik otomatis dari tanggal.
+     * Bulan >= Juli -> Ganjil, format [tahun]/[tahun+1]
+     * Bulan <  Juli -> Genap,  format [tahun-1]/[tahun]
+     */
+    private function getTahunAkademik(Carbon $tanggal): string
+    {
+        $tahun = (int) $tanggal->format('Y');
+        $bulan = (int) $tanggal->format('n');
+
+        return $bulan >= 7
+            ? $tahun . '/' . ($tahun + 1)
+            : ($tahun - 1) . '/' . $tahun;
+    }
+
+    /**
+     * Hitung angka semester berdasarkan angkatan & tanggal kolokium.
+     * Semester Ganjil (bulan >= Juli): (tahun - angkatan) * 2 + 1
+     * Semester Genap  (bulan <  Juli): (tahun - angkatan) * 2
+     */
+    private function getSemesterAngka(Carbon $tanggal, ?int $angkatan): ?int
+    {
+        if (! $angkatan) {
+            return null;
+        }
+
+        $tahun = (int) $tanggal->format('Y');
+        $bulan = (int) $tanggal->format('n');
+
+        $selisihTahun = $tahun - $angkatan;
+
+        return $bulan >= 7
+            ? ($selisihTahun * 2) + 1
+            : $selisihTahun * 2;
+    }
 }
