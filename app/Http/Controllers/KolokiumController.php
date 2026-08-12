@@ -599,7 +599,6 @@ class KolokiumController extends Controller
         return response()->download($tempPath, $fileName)->deleteFileAfterSend(true);
     }
 
-
     public function exportBeritaAcaraKolokium($id, Request $request)
     {
         $user = $request->user();
