@@ -585,6 +585,7 @@ class KolokiumController extends Controller
         $template->setValue('nama_pembimbing_utama', $pembimbingUtama->nama ?? '-');
         $template->setValue('nama_pembimbing_anggota', $pembimbingAnggota->nama ?? '-');
         $template->setValue('moderator', $kolokium->moderator->nama ?? $kolokium->namadosenmoderator ?? '-');
+        $template->setValue('nip', $kolokium->moderator->nip ?? '-');
 
         $fileName = 'daftar_hadir_kolokium_' . str_replace(' ', '_', $kolokium->nama) . '.docx';
         $tempPath = storage_path('app/temp/' . $fileName);

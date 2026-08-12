@@ -36,11 +36,6 @@ Route::prefix('auth')->middleware('auth:sanctum')->group(function () {
     Route::post('/profile/tandatangan', [UserController::class, 'uploadTandaTangan']);
     Route::post('/change-password', [AuthController::class, 'changePassword']);
 
-    // export rekapitulasi nilai kolokium, hanya admin yang bisa
-    Route::get('/kolokium/{id}/export-rekapitulasi-nilai-kolokium', [KolokiumController::class, 'exportRekapitulasiNilai']);
-    Route::get('/kolokium/{id}/export-lembar-penilaian', [KolokiumController::class, 'exportLembarPenilaian']);
-    Route::get('/kolokium/{id}/export-daftar-hadir-kolokium', [KolokiumController::class, 'exportDaftarHadirKolokium']);
-
     Route::get('/images/{path}', [UserController::class, 'showImage'])
     ->where('path', '.*'); // biar bisa tangkap path dengan folder, mis: profile-photos/xxx.jpg
     
@@ -48,6 +43,11 @@ Route::prefix('auth')->middleware('auth:sanctum')->group(function () {
     Route::get('/kolokium/my', [KolokiumController::class, 'myKolokium']); // WAJIB di atas /{id}
     Route::get('/kolokium', [KolokiumController::class, 'index']);
     Route::get('/kolokium/{id}', [KolokiumController::class, 'show']);
+
+    // export file kolokium, hanya admin yang bisa
+    Route::get('/kolokium/{id}/export-rekapitulasi-nilai-kolokium', [KolokiumController::class, 'exportRekapitulasiNilai']);
+    Route::get('/kolokium/{id}/export-lembar-penilaian', [KolokiumController::class, 'exportLembarPenilaian']);
+    Route::get('/kolokium/{id}/export-daftar-hadir-kolokium', [KolokiumController::class, 'exportDaftarHadirKolokium']);
 
     // CREATE - hanya mahasiswa 
     Route::post('/kolokium', [KolokiumController::class, 'store']);
