@@ -724,4 +724,55 @@ class SeminarController extends Controller
             ? ($selisihTahun * 2) + 1
             : $selisihTahun * 2;
     }
+
+    public function exportSuratKesediaanModerator($id, Request $request)
+    {
+        $user = $request->user();
+        if (!$user) {
+            return response()->json(['message' => 'User tidak ditemukan'], 404);
+        }
+
+        $seminar = Seminar::with('pembimbing', 'moderator')->find($id);
+
+        if (! $seminar) {
+            return response()->json(['message' => 'Seminar tidak ditemukan'], 404);
+        }
+
+        $templatePath = storage_path('app/templates/surat-kesediaan-moderator-seminar.docx');
+        $template = new TemplateProcessor($templatePath);
+
+        Carbon::setLocale('id');
+
+        // Nama moderator
+        $template->setValue('moderator', $seminar->moderator->nama ?? $seminar->namadosenmoderator ?? '-');
+
+        // Tanggal surat dibuat (hari ini)
+        $template->setValue('tanggal_export', Carbon::now()->locale('id')->translatedFormat('d F Y'));
+
+        // Identitas mahasiswa & seminar
+        $template->setValue('nama', $seminar->nama ?? '-');
+        $template->setValue('nim', $seminar->nim ?? '-');
+        $template->setValue('prodi', $seminar->prodi ?? '-');
+
+        $template->setValue(
+            'hari_tanggal',
+            $seminar->tanggal
+                ? Carbon::parse($seminar->tanggal)->translatedFormat('l, d F Y')
+                : '-'
+        );
+
+        $template->setValue('waktu', $this->formatWaktuWib($seminar->waktu));
+        $template->setValue('tempat', $seminar->ruangan ?? $seminar->lokasi ?? '-');
+
+        $fileName = 'surat_kesediaan_moderator_' . str_replace(' ', '_', $seminar->nama) . '.docx';
+        $tempPath = storage_path('app/temp/' . $fileName);
+
+        if (! file_exists(storage_path('app/temp'))) {
+            mkdir(storage_path('app/temp'), 0755, true);
+        }
+
+        $template->saveAs($tempPath);
+
+        return response()->download($tempPath, $fileName)->deleteFileAfterSend(true);
+    }
 }
