@@ -65,6 +65,7 @@ Route::prefix('auth')->middleware('auth:sanctum')->group(function () {
     Route::get('/seminar/{id}/export-daftar-hadir-seminar', [SeminarController::class, 'exportDaftarHadirSeminar']);
     Route::get('/seminar/{id}/export-berita-acara-seminar', [SeminarController::class, 'exportBeritaAcaraSeminar']);;
     Route::get('/seminar/{id}/export-kesediaan-moderator', [SeminarController::class, 'exportSuratKesediaanModerator']);
+    Route::get('/seminar/{id}/export-pengumuman', [SeminarController::class, 'exportPengumuman']);
 
     // PESERTA KOLOKIUM
     // Admin dan Dosen

@@ -775,4 +775,63 @@ class SeminarController extends Controller
 
         return response()->download($tempPath, $fileName)->deleteFileAfterSend(true);
     }
+
+    public function exportPengumuman($id, Request $request)
+    {
+        $user = $request->user();
+        if (!$user) {
+            return response()->json(['message' => 'User tidak ditemukan'], 404);
+        }
+
+        $seminar = Seminar::with('pembimbing', 'moderator')->find($id);
+
+        if (! $seminar) {
+            return response()->json(['message' => 'Seminar tidak ditemukan'], 404);
+        }
+
+        $templatePath = storage_path('app/templates/pengumuman-seminar.docx');
+        $template = new TemplateProcessor($templatePath);
+
+        Carbon::setLocale('id');
+
+        // Identitas mahasiswa & seminar
+        $template->setValue('nama', $seminar->nama ?? '-');
+        $template->setValue('nim', $seminar->nim ?? '-');
+
+        $template->setValue(
+            'hari_tanggal',
+            $seminar->tanggal
+                ? Carbon::parse($seminar->tanggal)->translatedFormat('l, d F Y')
+                : '-'
+        );
+
+        $template->setValue('waktu', $this->formatWaktuWib($seminar->waktu));
+        $template->setValue('tempat', $seminar->ruangan ?? $seminar->lokasi ?? '-');
+        $template->setValue('judul', $seminar->judul ?? '-');
+
+        // Nama-nama dosen pembimbing (urut sesuai pivot 'urutan'), gabung dengan " & "
+        $namaPembimbing = $seminar->pembimbing
+            ->sortBy('pivot.urutan')
+            ->pluck('nama')
+            ->implode(' & ');
+
+        $template->setValue('nama_pembimbing', $namaPembimbing !== '' ? $namaPembimbing : ($seminar->namadosenpembimbing ?? '-'));
+
+        // Moderator
+        $template->setValue('moderator', $seminar->moderator->nama ?? $seminar->namadosenmoderator ?? '-');
+
+        // Tanggal surat dibuat (hari ini)
+        $template->setValue('tanggal_export', Carbon::now()->locale('id')->translatedFormat('d F Y'));
+
+        $fileName = 'pengumuman_seminar_' . str_replace(' ', '_', $seminar->nama) . '.docx';
+        $tempPath = storage_path('app/temp/' . $fileName);
+
+        if (! file_exists(storage_path('app/temp'))) {
+            mkdir(storage_path('app/temp'), 0755, true);
+        }
+
+        $template->saveAs($tempPath);
+
+        return response()->download($tempPath, $fileName)->deleteFileAfterSend(true);
+    }
 }
