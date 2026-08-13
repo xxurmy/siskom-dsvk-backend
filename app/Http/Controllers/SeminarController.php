@@ -813,7 +813,7 @@ class SeminarController extends Controller
         $namaPembimbing = $seminar->pembimbing
             ->sortBy('pivot.urutan')
             ->pluck('nama')
-            ->implode(' & ');
+            ->implode(' dan ');
 
         $template->setValue('nama_pembimbing', $namaPembimbing !== '' ? $namaPembimbing : ($seminar->namadosenpembimbing ?? '-'));
 
