@@ -724,4 +724,112 @@ class KolokiumController extends Controller
             ? ($selisihTahun * 2) + 1
             : $selisihTahun * 2;
     }
+    public function exportSuratKesediaanModeratorKolokium($id, Request $request)
+    {
+        $user = $request->user();
+        if (!$user) {
+            return response()->json(['message' => 'User tidak ditemukan'], 404);
+        }
+
+        $kolokium = Kolokium::with('pembimbing', 'moderator')->find($id);
+
+        if (! $kolokium) {
+            return response()->json(['message' => 'Kolokium tidak ditemukan'], 404);
+        }
+
+        $templatePath = storage_path('app/templates/surat-kesediaan-moderator-kolokium.docx');
+        $template = new TemplateProcessor($templatePath);
+
+        Carbon::setLocale('id');
+
+        // Nama moderator
+        $template->setValue('moderator', $kolokium->moderator->nama ?? $kolokium->namadosenmoderator ?? '-');
+
+        // Tanggal surat dibuat (hari ini)
+        $template->setValue('tanggal_export', Carbon::now()->locale('id')->translatedFormat('d F Y'));
+
+        // Identitas mahasiswa & kolokium
+        $template->setValue('nama', $kolokium->nama ?? '-');
+        $template->setValue('nim', $kolokium->nim ?? '-');
+        $template->setValue('prodi', $kolokium->prodi ?? '-');
+
+        $template->setValue(
+            'hari_tanggal',
+            $kolokium->tanggal
+                ? Carbon::parse($kolokium->tanggal)->translatedFormat('l, d F Y')
+                : '-'
+        );
+
+        $template->setValue('waktu', $this->formatWaktuWib($kolokium->waktu));
+        $template->setValue('tempat', $kolokium->ruangan ?? $kolokium->lokasi ?? '-');
+
+        $fileName = 'surat_kesediaan_moderator_' . str_replace(' ', '_', $kolokium->nama) . '.docx';
+        $tempPath = storage_path('app/temp/' . $fileName);
+
+        if (! file_exists(storage_path('app/temp'))) {
+            mkdir(storage_path('app/temp'), 0755, true);
+        }
+
+        $template->saveAs($tempPath);
+
+        return response()->download($tempPath, $fileName)->deleteFileAfterSend(true);
+    }
+    public function exportPengumumankolokium($id, Request $request)
+    {
+        $user = $request->user();
+        if (!$user) {
+            return response()->json(['message' => 'User tidak ditemukan'], 404);
+        }
+
+        $kolokium = Kolokium::with('pembimbing', 'moderator')->find($id);
+
+        if (! $kolokium) {
+            return response()->json(['message' => 'Kolokium tidak ditemukan'], 404);
+        }
+
+        $templatePath = storage_path('app/templates/pengumuman-kolokium.docx');
+        $template = new TemplateProcessor($templatePath);
+
+        Carbon::setLocale('id');
+
+        // Identitas mahasiswa & kolokium
+        $template->setValue('nama', $kolokium->nama ?? '-');
+        $template->setValue('nim', $kolokium->nim ?? '-');
+
+        $template->setValue(
+            'hari_tanggal',
+            $kolokium->tanggal
+                ? Carbon::parse($kolokium->tanggal)->translatedFormat('l, d F Y')
+                : '-'
+        );
+
+        $template->setValue('waktu', $this->formatWaktuWib($kolokium->waktu));
+        $template->setValue('tempat', $kolokium->ruangan ?? $kolokium->lokasi ?? '-');
+        $template->setValue('judul', $kolokium->judul ?? '-');
+
+        // Nama-nama dosen pembimbing (urut sesuai pivot 'urutan'), gabung dengan " & "
+        $namaPembimbing = $kolokium->pembimbing
+            ->sortBy('pivot.urutan')
+            ->pluck('nama')
+            ->implode(' dan ');
+
+        $template->setValue('nama_pembimbing', $namaPembimbing !== '' ? $namaPembimbing : ($kolokium->namadosenpembimbing ?? '-'));
+
+        // Moderator
+        $template->setValue('moderator', $kolokium->moderator->nama ?? $kolokium->namadosenmoderator ?? '-');
+
+        // Tanggal surat dibuat (hari ini)
+        $template->setValue('tanggal_export', Carbon::now()->locale('id')->translatedFormat('d F Y'));
+
+        $fileName = 'pengumuman_kolokium_' . str_replace(' ', '_', $kolokium->nama) . '.docx';
+        $tempPath = storage_path('app/temp/' . $fileName);
+
+        if (! file_exists(storage_path('app/temp'))) {
+            mkdir(storage_path('app/temp'), 0755, true);
+        }
+
+        $template->saveAs($tempPath);
+
+        return response()->download($tempPath, $fileName)->deleteFileAfterSend(true);
+    }
 }
