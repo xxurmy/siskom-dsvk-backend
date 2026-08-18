@@ -66,7 +66,11 @@ class SyaratAdministrasiKolokiumController extends Controller
             return response()->json(['message' => 'Kolokium tidak ditemukan'], 404);
         }
 
-        if ($user->role === 'mahasiswa' && $kolokium->mahasiswa_id !== $user->id) {
+        if ($user->role === 'mahasiswa') {
+            if ($kolokium->mahasiswa_id !== $user->id) {
+                return response()->json(['message' => 'Unauthorized'], 403);
+            }
+        } elseif ($user->role !== 'admin') {
             return response()->json(['message' => 'Unauthorized'], 403);
         }
 
