@@ -724,6 +724,7 @@ class KolokiumController extends Controller
             ? ($selisihTahun * 2) + 1
             : $selisihTahun * 2;
     }
+
     public function exportSuratKesediaanModeratorKolokium($id, Request $request)
     {
         $user = $request->user();
@@ -774,6 +775,7 @@ class KolokiumController extends Controller
 
         return response()->download($tempPath, $fileName)->deleteFileAfterSend(true);
     }
+    
     public function exportPengumumankolokium($id, Request $request)
     {
         $user = $request->user();
