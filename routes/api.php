@@ -46,7 +46,7 @@ Route::prefix('auth')->middleware('auth:sanctum')->group(function () {
 
     // export file kolokium, hanya admin yang bisa
     Route::get('/kolokium/{id}/export-rekapitulasi-nilai-kolokium', [KolokiumController::class, 'exportRekapitulasiNilai']);
-    Route::get('/kolokium/{id}/export-lembar-penilaian', [KolokiumController::class, 'exportLembarPenilaian']);
+    Route::get('/kolokium/{id}/export-lembar-penilaian-kolokium', [KolokiumController::class, 'exportLembarPenilaian']);
     Route::get('/kolokium/{id}/export-daftar-hadir-kolokium', [KolokiumController::class, 'exportDaftarHadirKolokium']);
     Route::get('/kolokium/{id}/export-berita-acara-kolokium', [KolokiumController::class, 'exportBeritaAcaraKolokium']);;
     Route::get('/kolokium/{id}/export-kesediaan-moderator-kolokium', [KolokiumController::class, 'exportSuratKesediaanModeratorKolokium']);
@@ -63,11 +63,11 @@ Route::prefix('auth')->middleware('auth:sanctum')->group(function () {
 
     // export file seminar, hanya admin yang bisa
     Route::get('/seminar/{id}/export-rekapitulasi-nilai-seminar', [SeminarController::class, 'exportRekapitulasiNilai']);
-    Route::get('/seminar/{id}/export-lembar-penilaian', [SeminarController::class, 'exportLembarPenilaian']);
+    Route::get('/seminar/{id}/export-lembar-penilaian-seminar', [SeminarController::class, 'exportLembarPenilaian']);
     Route::get('/seminar/{id}/export-daftar-hadir-seminar', [SeminarController::class, 'exportDaftarHadirSeminar']);
     Route::get('/seminar/{id}/export-berita-acara-seminar', [SeminarController::class, 'exportBeritaAcaraSeminar']);;
-    Route::get('/seminar/{id}/export-kesediaan-moderator', [SeminarController::class, 'exportSuratKesediaanModerator']);
-    Route::get('/seminar/{id}/export-pengumuman', [SeminarController::class, 'exportPengumuman']);
+    Route::get('/seminar/{id}/export-kesediaan-moderator-seminar', [SeminarController::class, 'exportSuratKesediaanModerator']);
+    Route::get('/seminar/{id}/export-pengumuman-seminar', [SeminarController::class, 'exportPengumuman']);
 
     // PESERTA KOLOKIUM
     // Admin dan Dosen
