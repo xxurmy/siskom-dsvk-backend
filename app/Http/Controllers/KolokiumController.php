@@ -13,8 +13,8 @@ use Carbon\Carbon;
 class KolokiumController extends Controller
 {
     /**
-     * Jumlah data per halaman default & batas maksimal, dipakai bareng
-     * oleh index() & myKolokium() supaya konsisten dan tidak disalahgunakan
+     * Jumlah data per halaman default & batas maksimal, dipakai
+     * oleh index() supaya konsisten dan tidak disalahgunakan
      * (mis. per_page=999999 yang bikin query berat).
      */
     private const DEFAULT_PER_PAGE = 10;
@@ -92,10 +92,6 @@ class KolokiumController extends Controller
 
     /**
      * GET MY KOLOKIUM - milik user yang sedang login
-     *
-     * Query params yang didukung:
-     * - status   : filter status ('pending' | 'approved' | 'rejected')
-     * - per_page : jumlah data per halaman (default 10, maksimal 100)
      */
     public function myKolokium(Request $request)
     {
@@ -106,7 +102,7 @@ class KolokiumController extends Controller
             ], 404);
         }
 
-        $query = Kolokium::query();
+        $query = Kolokium::with('pembimbing');
 
         if ($user->role === 'mahasiswa') {
             $query->where('mahasiswa_id', $user->id);
