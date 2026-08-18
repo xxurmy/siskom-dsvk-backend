@@ -260,16 +260,19 @@ class KolokiumController extends Controller
             'pembimbing_id.*'      => 'required_with:pembimbing_id|integer|exists:users,id|distinct',
             'moderator_id'         => 'sometimes|nullable|integer|exists:users,id',
             'nama'                 => 'sometimes|string|max:255',
-            'nim'                  => 'sometimes|string|max:50',
+            'nim'                  => 'sometimes|string|max:11',
             'prodi'                => 'sometimes|string|max:100',
-            'judul'                => 'sometimes|string|max:255',
+            'judul'                => 'sometimes|string|max:500',
             'lokasi'               => 'nullable|string|max:255',
             'tanggal'              => 'nullable|date|after:today',
             'waktu'                => 'nullable|string|max:50',
             'namadosenmoderator'   => 'nullable|string|max:255',
             'ruangan'              => 'nullable|string|max:100',
             'status'               => 'sometimes|in:pending,approved,rejected',
+            'catatan'              => 'nullable|string|required_if:status,rejected',
             'jumlahforum'          => 'sometimes|integer|min:0',
+        ], [
+            'catatan.required_if' => 'Catatan wajib diisi jika kolokium ditolak',
         ]);
 
         if ($validator->fails()) {
@@ -353,6 +356,93 @@ class KolokiumController extends Controller
 
         return response()->json([
             'message'  => 'Kolokium berhasil diperbarui',
+            'kolokium' => $kolokium,
+        ]);
+    }
+
+    /**
+     * RESUBMIT - mahasiswa pemilik kolokium, hanya jika status saat ini 'rejected'
+     * Setelah update: status -> pending, catatan -> null
+     */
+    public function resubmit($id, Request $request)
+    {
+        $user = $request->user();
+        if (!$user) {
+            return response()->json(['message' => 'User tidak ditemukan'], 404);
+        }
+
+        if ($user->role !== 'mahasiswa') {
+            return response()->json(['message' => 'Unauthorized'], 403);
+        }
+
+        $kolokium = Kolokium::find($id);
+
+        if (! $kolokium) {
+            return response()->json(['message' => 'Kolokium tidak ditemukan'], 404);
+        }
+
+        if ($kolokium->mahasiswa_id !== $user->id) {
+            return response()->json(['message' => 'Unauthorized'], 403);
+        }
+
+        if ($kolokium->status !== 'rejected') {
+            return response()->json([
+                'message' => 'Hanya kolokium berstatus ditolak yang dapat diajukan ulang',
+            ], 422);
+        }
+
+        $validator = Validator::make($request->all(), [
+            'pembimbing_id'       => 'sometimes|array|min:1|max:2',
+            'pembimbing_id.*'     => 'required_with:pembimbing_id|integer|exists:users,id|distinct',
+            'moderator_id'        => 'sometimes|nullable|integer|exists:users,id',
+            'judul'               => 'sometimes|string|max:500',
+            'lokasi'              => 'nullable|string|max:255',
+            'tanggal'             => 'nullable|date|after:today',
+            'waktu'               => 'nullable|string|max:50',
+            'namadosenmoderator'  => 'nullable|string|max:255',
+            'ruangan'             => 'nullable|string|max:100',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'message' => 'Validasi gagal',
+                'errors'  => $validator->errors(),
+            ], 422);
+        }
+
+        $data = $validator->validated();
+
+        if (isset($data['pembimbing_id'])) {
+            $pembimbingUsers = User::whereIn('id', $data['pembimbing_id'])
+                ->where('role', 'dosen')
+                ->get()
+                ->sortBy(fn ($u) => array_search($u->id, $data['pembimbing_id']))
+                ->values();
+
+            if ($pembimbingUsers->count() !== count($data['pembimbing_id'])) {
+                return response()->json([
+                    'message' => 'Semua pembimbing harus berasal dari akun dengan role dosen',
+                ], 422);
+            }
+
+            $syncData = [];
+            foreach ($pembimbingUsers as $index => $dosen) {
+                $syncData[$dosen->id] = ['urutan' => $index + 1];
+            }
+            $kolokium->pembimbing()->sync($syncData);
+
+            $data['namadosenpembimbing'] = $pembimbingUsers->pluck('nama')->implode(' & ');
+            unset($data['pembimbing_id']);
+        }
+
+        // Paksa status kembali ke pending & catatan dikosongkan, apa pun input dari client
+        $data['status']  = 'pending';
+        $data['catatan'] = null;
+
+        $kolokium->update($data);
+
+        return response()->json([
+            'message'  => 'Kolokium berhasil diajukan ulang',
             'kolokium' => $kolokium,
         ]);
     }
@@ -775,7 +865,7 @@ class KolokiumController extends Controller
 
         return response()->download($tempPath, $fileName)->deleteFileAfterSend(true);
     }
-    
+
     public function exportPengumumankolokium($id, Request $request)
     {
         $user = $request->user();

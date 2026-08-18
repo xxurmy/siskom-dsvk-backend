@@ -28,6 +28,7 @@ class Kolokium extends Model
         'namadosenmoderator',
         'ruangan',
         'status',
+        'catatan',
         'jumlahforum',
     ];
 

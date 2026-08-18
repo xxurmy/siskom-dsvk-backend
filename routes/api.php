@@ -54,6 +54,7 @@ Route::prefix('auth')->middleware('auth:sanctum')->group(function () {
 
     // CREATE - hanya mahasiswa 
     Route::post('/kolokium', [KolokiumController::class, 'store']);
+    Route::patch('/kolokium/{id}/resubmit', [KolokiumController::class, 'resubmit']);
 
     // SEMINAR
     Route::get('/seminar/my', [SeminarController::class, 'mySeminar']);
