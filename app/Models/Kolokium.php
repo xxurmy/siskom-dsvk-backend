@@ -73,4 +73,9 @@ class Kolokium extends Model
             ->where('status', 'hadir')
             ->count();
     }
+    
+    public function syaratAdministrasi()
+    {
+        return $this->hasOne(SyaratAdministrasiKolokium::class);
+    }
 }

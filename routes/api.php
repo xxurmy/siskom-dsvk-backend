@@ -11,7 +11,7 @@ use App\Http\Controllers\PesertaKolokiumController;
 use App\Http\Controllers\SeminarController;
 use App\Http\Controllers\PesertaSeminarController;
 use App\Http\Controllers\KartuSeminarController;
-
+use App\Http\Controllers\SyaratAdministrasiKolokiumController;
 
 // Auth
 Route::post('/login', [AuthController::class, 'login']);
@@ -108,4 +108,10 @@ Route::prefix('auth')->middleware('auth:sanctum')->group(function () {
     Route::delete('/kolokium/{id}', [KolokiumController::class, 'destroy']);
     Route::patch('/seminar/{id}', [SeminarController::class, 'update']);
     Route::delete('/seminar/{id}', [SeminarController::class, 'destroy']);
+
+    // SYARAT ADMINISTRASI KOLOKIUM
+    Route::get('/kolokium/{id}/syarat-administrasi', [SyaratAdministrasiKolokiumController::class, 'show']);
+    Route::post('/kolokium/{id}/syarat-administrasi/{syaratKey}', [SyaratAdministrasiKolokiumController::class, 'upload']);
+    Route::patch('/kolokium/{id}/syarat-administrasi/verify', [SyaratAdministrasiKolokiumController::class, 'verify']);
+    
 });
