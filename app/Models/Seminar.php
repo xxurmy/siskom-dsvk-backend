@@ -25,6 +25,7 @@ class Seminar extends Model
         'namadosenmoderator',
         'ruangan',
         'status',
+        'catatan',
         'jumlahforum',
     ];
 

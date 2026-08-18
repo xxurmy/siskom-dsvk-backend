@@ -260,16 +260,19 @@ class SeminarController extends Controller
             'pembimbing_id.*'      => 'required_with:pembimbing_id|integer|exists:users,id|distinct',
             'moderator_id'         => 'sometimes|nullable|integer|exists:users,id',
             'nama'                 => 'sometimes|string|max:255',
-            'nim'                  => 'sometimes|string|max:50',
+            'nim'                  => 'sometimes|string|max:11',
             'prodi'                => 'sometimes|string|max:100',
-            'judul'                => 'sometimes|string|max:255',
+            'judul'                => 'sometimes|string|max:500',
             'lokasi'               => 'nullable|string|max:255',
             'tanggal'              => 'nullable|date|after:today',
             'waktu'                => 'nullable|string|max:50',
             'namadosenmoderator'   => 'nullable|string|max:255',
             'ruangan'              => 'nullable|string|max:100',
             'status'               => 'sometimes|in:pending,approved,rejected',
+            'catatan'              => 'nullable|string|required_if:status,rejected',
             'jumlahforum'          => 'sometimes|integer|min:0',
+        ], [
+            'catatan.required_if' => 'Catatan wajib diisi jika seminar ditolak.',
         ]);
 
         if ($validator->fails()) {
@@ -354,6 +357,93 @@ class SeminarController extends Controller
         return response()->json([
             'message'  => 'Seminar berhasil diperbarui',
             'seminar'  => $seminar,
+        ]);
+    }
+
+    /**
+     * RESUBMIT - mahasiswa pemilik seminar, hanya jika status saat ini 'rejected'
+     * Setelah update: status -> pending, catatan -> null
+     */
+    public function resubmit($id, Request $request)
+    {
+        $user = $request->user();
+        if (!$user) {
+            return response()->json(['message' => 'User tidak ditemukan'], 404);
+        }
+
+        if ($user->role !== 'mahasiswa') {
+            return response()->json(['message' => 'Unauthorized'], 403);
+        }
+
+        $seminar = Seminar::find($id);
+
+        if (! $seminar) {
+            return response()->json(['message' => 'Seminar tidak ditemukan'], 404);
+        }
+
+        if ($seminar->mahasiswa_id !== $user->id) {
+            return response()->json(['message' => 'Unauthorized'], 403);
+        }
+
+        if ($seminar->status !== 'rejected') {
+            return response()->json([
+                'message' => 'Hanya seminar berstatus ditolak yang dapat diajukan ulang',
+            ], 422);
+        }
+
+        $validator = Validator::make($request->all(), [
+            'pembimbing_id'       => 'sometimes|array|min:1|max:2',
+            'pembimbing_id.*'     => 'required_with:pembimbing_id|integer|exists:users,id|distinct',
+            'moderator_id'        => 'sometimes|nullable|integer|exists:users,id',
+            'judul'               => 'sometimes|string|max:500',
+            'lokasi'              => 'nullable|string|max:255',
+            'tanggal'             => 'nullable|date|after:today',
+            'waktu'               => 'nullable|string|max:50',
+            'namadosenmoderator'  => 'nullable|string|max:255',
+            'ruangan'             => 'nullable|string|max:100',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'message' => 'Validasi gagal',
+                'errors'  => $validator->errors(),
+            ], 422);
+        }
+
+        $data = $validator->validated();
+
+        if (isset($data['pembimbing_id'])) {
+            $pembimbingUsers = User::whereIn('id', $data['pembimbing_id'])
+                ->where('role', 'dosen')
+                ->get()
+                ->sortBy(fn ($u) => array_search($u->id, $data['pembimbing_id']))
+                ->values();
+
+            if ($pembimbingUsers->count() !== count($data['pembimbing_id'])) {
+                return response()->json([
+                    'message' => 'Semua pembimbing harus berasal dari akun dengan role dosen',
+                ], 422);
+            }
+
+            $syncData = [];
+            foreach ($pembimbingUsers as $index => $dosen) {
+                $syncData[$dosen->id] = ['urutan' => $index + 1];
+            }
+            $seminar->pembimbing()->sync($syncData);
+
+            $data['namadosenpembimbing'] = $pembimbingUsers->pluck('nama')->implode(' & ');
+            unset($data['pembimbing_id']);
+        }
+
+        // Paksa status kembali ke pending & catatan dikosongkan, apa pun input dari client
+        $data['status']  = 'pending';
+        $data['catatan'] = null;
+
+        $seminar->update($data);
+
+        return response()->json([
+            'message'  => 'Seminar berhasil diajukan ulang',
+            'seminar' => $seminar,
         ]);
     }
 

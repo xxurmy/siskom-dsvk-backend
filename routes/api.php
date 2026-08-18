@@ -61,6 +61,7 @@ Route::prefix('auth')->middleware('auth:sanctum')->group(function () {
     Route::get('/seminar', [SeminarController::class, 'index']);
     Route::get('/seminar/{id}', [SeminarController::class, 'show']);
     Route::post('/seminar', [SeminarController::class, 'store']);
+    Route::patch('/seminar/{id}/resubmit', [SeminarController::class, 'resubmit']);
 
     // export file seminar, hanya admin yang bisa
     Route::get('/seminar/{id}/export-rekapitulasi-nilai-seminar', [SeminarController::class, 'exportRekapitulasiNilai']);
