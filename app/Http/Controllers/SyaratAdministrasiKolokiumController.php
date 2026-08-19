@@ -9,6 +9,7 @@ use App\Services\GoogleDriveService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Str;
+use Illuminate\Validation\Rule;
 
 class SyaratAdministrasiKolokiumController extends Controller
 {
@@ -195,7 +196,14 @@ class SyaratAdministrasiKolokiumController extends Controller
 
         $validator = Validator::make($request->all(), [
             'status'        => 'required|in:lengkap,ditolak,menunggu_verifikasi',
-            'catatan_admin' => 'nullable|string|max:1000',
+            'catatan_admin' => [
+                'nullable',
+                'string',
+                'max:1000',
+                Rule::requiredIf($request->input('status') === 'ditolak'),
+            ],
+        ], [
+            'catatan_admin.required' => 'Catatan admin wajib diisi ketika status ditolak.',
         ]);
 
         if ($validator->fails()) {
