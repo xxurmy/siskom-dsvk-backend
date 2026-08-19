@@ -14,6 +14,9 @@ class SyaratAdministrasiKolokiumController extends Controller
 {
     /**
      * Mapping key syarat -> [kolom url, kolom drive_id, kolom uploaded_at, aturan validasi]
+     * PENTING: key di sini harus PERSIS SAMA dengan key yang dikembalikan
+     * SyaratAdministrasiKolokium::daftarSyarat() di model, supaya frontend
+     * (GET utk nampilin status & POST utk upload) mengacu ke key yang sama.
      */
     private const SYARAT_MAP = [
         'proposal' => [
@@ -21,7 +24,7 @@ class SyaratAdministrasiKolokiumController extends Controller
             'rule' => 'required|file|mimes:pdf|max:51200', // 50MB
             'label' => 'Proposal',
         ],
-        'bukti-spp' => [
+        'bukti_spp' => [
             'url_col' => 'bukti_spp_url', 'id_col' => 'bukti_spp_drive_id', 'at_col' => 'bukti_spp_uploaded_at',
             'rule' => 'required|file|mimes:pdf|max:10240', // 10MB
             'label' => 'Bukti Lunas SPP',
@@ -31,7 +34,7 @@ class SyaratAdministrasiKolokiumController extends Controller
             'rule' => 'required|file|mimes:pdf|max:10240', // 10MB
             'label' => 'Transkrip Nilai',
         ],
-        'kartu-kolokium' => [
+        'kartu_kolokium' => [
             'url_col' => 'kartu_kolokium_url', 'id_col' => 'kartu_kolokium_drive_id', 'at_col' => 'kartu_kolokium_uploaded_at',
             'rule' => 'required|file|mimes:pdf,jpg,jpeg,png|max:10240', // 10MB
             'label' => 'Kartu Kolokium',
@@ -86,7 +89,7 @@ class SyaratAdministrasiKolokiumController extends Controller
 
     /**
      * POST - upload salah satu file syarat administrasi.
-     * $syaratKey: proposal | bukti-spp | transkrip | kartu-kolokium | makalah
+     * $syaratKey: proposal | bukti_spp | transkrip | kartu_kolokium | makalah
      * Hanya mahasiswa pemilik kolokium yang boleh upload.
      */
     public function upload($kolokiumId, string $syaratKey, Request $request)
@@ -124,7 +127,8 @@ class SyaratAdministrasiKolokiumController extends Controller
 
         $syarat = SyaratAdministrasiKolokium::firstOrCreate(['kolokium_id' => $kolokium->id]);
 
-        // Buat/reuse folder gdrive khusus mahasiswa ini (nim_nama)
+        // Buat/reuse folder gdrive khusus mahasiswa ini.
+        // Struktur folder: berkas-siskom-dsvk (root) -> kolokium -> nim_nama
         if (! $syarat->drive_folder_id) {
             $folderId = $this->driveService->findOrCreateUserFolder($kolokium->nim, $kolokium->nama);
             $syarat->drive_folder_id = $folderId;

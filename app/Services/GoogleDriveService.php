@@ -21,7 +21,7 @@ class GoogleDriveService
         $this->tokenPath = storage_path('app/google-drive-token.json');
 
         $this->client = new GoogleClient();
-        $this->client->setAuthConfig(storage_path('app/silvikultur-719cbf4f9484.json'));
+        $this->client->setAuthConfig(storage_path('app/google-oauth-client.json'));
         $this->client->addScope(GoogleDrive::DRIVE);
         $this->client->setAccessType('offline');
 
@@ -45,8 +45,6 @@ class GoogleDriveService
             }
 
             $newToken = $this->client->fetchAccessTokenWithRefreshToken($refreshToken);
-
-            // refresh_token lama tetap dipertahankan (Google kadang tidak kirim ulang)
             $newToken['refresh_token'] = $newToken['refresh_token'] ?? $refreshToken;
 
             file_put_contents($this->tokenPath, json_encode($newToken, JSON_PRETTY_PRINT));
@@ -57,13 +55,18 @@ class GoogleDriveService
         $this->rootFolderId = config('services.google_drive.root_folder_id');
     }
 
-    public function findOrCreateUserFolder(string $nim, string $nama): string
+    /**
+     * Cari/buat folder generik di dalam parent folder tertentu.
+     * Dipakai berlapis untuk bikin struktur: root -> kolokium -> nim_nama
+     * (atau root -> seminar -> nim_nama untuk modul lain nanti).
+     */
+    public function findOrCreateFolder(string $folderName, string $parentFolderId): string
     {
-        $folderName = $this->sanitizeFolderName($nim . '_' . $nama);
+        $folderName = $this->sanitizeFolderName($folderName);
 
         $query = sprintf(
             "'%s' in parents and name = '%s' and mimeType = 'application/vnd.google-apps.folder' and trashed = false",
-            $this->rootFolderId,
+            $parentFolderId,
             addslashes($folderName)
         );
 
@@ -79,12 +82,27 @@ class GoogleDriveService
         $folder = new DriveFile([
             'name' => $folderName,
             'mimeType' => 'application/vnd.google-apps.folder',
-            'parents' => [$this->rootFolderId],
+            'parents' => [$parentFolderId],
         ]);
 
         $created = $this->drive->files->create($folder, ['fields' => 'id']);
 
         return $created->getId();
+    }
+
+    /**
+     * Cari/buat folder khusus mahasiswa untuk berkas Kolokium.
+     * Struktur: berkas-siskom-dsvk (root, dari GOOGLE_DRIVE_ROOT_FOLDER_ID)
+     *           -> kolokium
+     *           -> nim_nama
+     */
+    public function findOrCreateUserFolder(string $nim, string $nama): string
+    {
+        $kolokiumFolderId = $this->findOrCreateFolder('kolokium', $this->rootFolderId);
+
+        $userFolderName = $nim . '_' . $nama;
+
+        return $this->findOrCreateFolder($userFolderName, $kolokiumFolderId);
     }
 
     public function uploadFile(string $folderId, UploadedFile $file, string $customFileName): array
@@ -104,6 +122,7 @@ class GoogleDriveService
             ]
         );
 
+        // Bikin publik (anyone with the link, read-only) supaya bisa diembed
         $this->drive->permissions->create($uploaded->getId(), new Permission([
             'type' => 'anyone',
             'role' => 'reader',
@@ -113,20 +132,6 @@ class GoogleDriveService
             'id'  => $uploaded->getId(),
             'url' => $uploaded->getWebViewLink() ?? "https://drive.google.com/file/d/{$uploaded->getId()}/view",
         ];
-    }
-
-    public function deleteFile(string $fileId): void
-    {
-        try {
-            $this->drive->files->delete($fileId);
-        } catch (\Exception $e) {
-            // File mungkin sudah dihapus manual, abaikan
-        }
-    }
-
-    private function sanitizeFolderName(string $name): string
-    {
-        return preg_replace('/[\/\\\?%*:|"<>]/', '-', $name);
     }
 
     /**
@@ -157,11 +162,24 @@ class GoogleDriveService
                 'url' => $updated->getWebViewLink() ?? "https://drive.google.com/file/d/{$updated->getId()}/view",
             ];
         } catch (\Google\Service\Exception $e) {
-            // File lama sudah tidak ada / sudah dihapus manual di Drive -> null, controller fallback create baru
             if ($e->getCode() === 404) {
                 return null;
             }
             throw $e;
         }
+    }
+
+    public function deleteFile(string $fileId): void
+    {
+        try {
+            $this->drive->files->delete($fileId);
+        } catch (\Exception $e) {
+            // File mungkin sudah dihapus manual, abaikan
+        }
+    }
+
+    private function sanitizeFolderName(string $name): string
+    {
+        return preg_replace('/[\/\\\?%*:|"<>]/', '-', $name);
     }
 }
