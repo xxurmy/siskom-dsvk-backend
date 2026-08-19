@@ -12,6 +12,7 @@ use App\Http\Controllers\SeminarController;
 use App\Http\Controllers\PesertaSeminarController;
 use App\Http\Controllers\KartuSeminarController;
 use App\Http\Controllers\SyaratAdministrasiKolokiumController;
+use App\Http\Controllers\SyaratAdministrasiSeminarController;
 
 // Auth
 Route::post('/login', [AuthController::class, 'login']);
@@ -113,5 +114,9 @@ Route::prefix('auth')->middleware('auth:sanctum')->group(function () {
     Route::get('/kolokium/{id}/syarat-administrasi', [SyaratAdministrasiKolokiumController::class, 'show']);
     Route::post('/kolokium/{id}/syarat-administrasi/{syaratKey}', [SyaratAdministrasiKolokiumController::class, 'upload']);
     Route::patch('/kolokium/{id}/syarat-administrasi/verify', [SyaratAdministrasiKolokiumController::class, 'verify']);
-    
+
+    // SYARAT ADMINISTRASI SEMINAR
+    Route::get('/seminar/{id}/syarat-administrasi', [SyaratAdministrasiSeminarController::class, 'show']);
+    Route::post('/seminar/{id}/syarat-administrasi/{syaratKey}', [SyaratAdministrasiSeminarController::class, 'upload']);
+    Route::patch('/seminar/{id}/syarat-administrasi/verify', [SyaratAdministrasiSeminarController::class, 'verify']);   
 });

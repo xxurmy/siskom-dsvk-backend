@@ -58,7 +58,7 @@ class GoogleDriveService
     /**
      * Cari/buat folder generik di dalam parent folder tertentu.
      * Dipakai berlapis untuk bikin struktur: root -> kolokium -> nim_nama
-     * (atau root -> seminar -> nim_nama untuk modul lain nanti).
+     * (atau root -> seminar -> nim_nama).
      */
     public function findOrCreateFolder(string $folderName, string $parentFolderId): string
     {
@@ -91,18 +91,25 @@ class GoogleDriveService
     }
 
     /**
-     * Cari/buat folder khusus mahasiswa untuk berkas Kolokium.
+     * Cari/buat folder khusus mahasiswa untuk berkas Kolokium atau Seminar.
      * Struktur: berkas-siskom-dsvk (root, dari GOOGLE_DRIVE_ROOT_FOLDER_ID)
-     *           -> kolokium
+     *           -> kolokium (atau seminar)
      *           -> nim_nama
+     *
+     * $jenis menentukan sub-folder tingkat pertama di bawah root, supaya
+     * berkas kolokium & seminar tidak tercampur dalam satu folder yang sama.
+     * Default tetap 'kolokium' supaya pemanggilan lama (tanpa parameter ini)
+     * tidak berubah perilaku.
      */
-    public function findOrCreateUserFolder(string $nim, string $nama): string
+    public function findOrCreateUserFolder(string $nim, string $nama, string $jenis = 'kolokium'): string
     {
-        $kolokiumFolderId = $this->findOrCreateFolder('kolokium', $this->rootFolderId);
+        $jenis = $this->sanitizeJenisFolder($jenis);
+
+        $jenisFolderId = $this->findOrCreateFolder($jenis, $this->rootFolderId);
 
         $userFolderName = $nim . '_' . $nama;
 
-        return $this->findOrCreateFolder($userFolderName, $kolokiumFolderId);
+        return $this->findOrCreateFolder($userFolderName, $jenisFolderId);
     }
 
     public function uploadFile(string $folderId, UploadedFile $file, string $customFileName): array
@@ -181,5 +188,17 @@ class GoogleDriveService
     private function sanitizeFolderName(string $name): string
     {
         return preg_replace('/[\/\\\?%*:|"<>]/', '-', $name);
+    }
+
+    /**
+     * Batasi $jenis cuma ke nilai yang dikenal ('kolokium' / 'seminar'),
+     * supaya nama sub-folder root tetap konsisten & tidak bisa disisipi
+     * nilai sembarangan dari pemanggil.
+     */
+    private function sanitizeJenisFolder(string $jenis): string
+    {
+        $jenis = strtolower(trim($jenis));
+
+        return in_array($jenis, ['kolokium', 'seminar'], true) ? $jenis : 'kolokium';
     }
 }

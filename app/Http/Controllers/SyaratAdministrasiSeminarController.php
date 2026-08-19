@@ -1,21 +1,21 @@
 <?php
-// app/Http/Controllers/SyaratAdministrasiKolokiumController.php
+// app/Http/Controllers/SyaratAdministrasiSeminarController.php
 
 namespace App\Http\Controllers;
 
-use App\Models\Kolokium;
-use App\Models\SyaratAdministrasiKolokium;
+use App\Models\Seminar;
+use App\Models\SyaratAdministrasiSeminar;
 use App\Services\GoogleDriveService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Str;
 
-class SyaratAdministrasiKolokiumController extends Controller
+class SyaratAdministrasiSeminarController extends Controller
 {
     /**
      * Mapping key syarat -> [kolom url, kolom drive_id, kolom uploaded_at, aturan validasi]
      * PENTING: key di sini harus PERSIS SAMA dengan key yang dikembalikan
-     * SyaratAdministrasiKolokium::daftarSyarat() di model, supaya frontend
+     * SyaratAdministrasiSeminar::daftarSyarat() di model, supaya frontend
      * (GET utk nampilin status & POST utk upload) mengacu ke key yang sama.
      */
     private const SYARAT_MAP = [
@@ -34,15 +34,15 @@ class SyaratAdministrasiKolokiumController extends Controller
             'rule' => 'required|file|mimes:pdf|max:10240', // 10MB
             'label' => 'Transkrip Nilai',
         ],
-        'kartu_kolokium' => [
-            'url_col' => 'kartu_kolokium_url', 'id_col' => 'kartu_kolokium_drive_id', 'at_col' => 'kartu_kolokium_uploaded_at',
+        'kartu_seminar' => [
+            'url_col' => 'kartu_seminar_url', 'id_col' => 'kartu_seminar_drive_id', 'at_col' => 'kartu_seminar_uploaded_at',
             'rule' => 'required|file|mimes:pdf,jpg,jpeg,png|max:10240', // 10MB
-            'label' => 'Kartu Kolokium',
+            'label' => 'Kartu Seminar',
         ],
         'makalah' => [
             'url_col' => 'makalah_url', 'id_col' => 'makalah_drive_id', 'at_col' => 'makalah_uploaded_at',
             'rule' => 'required|file|mimes:pdf|max:51200', // 50MB
-            'label' => 'Makalah Kolokium',
+            'label' => 'Makalah Seminar',
         ],
     ];
 
@@ -53,7 +53,7 @@ class SyaratAdministrasiKolokiumController extends Controller
      * controller (Kolokium & Seminar) konsisten memberi argumen ini
      * secara eksplisit, bukan mengandalkan nilai default di service.
      */
-    private const JENIS_FOLDER = 'kolokium';
+    private const JENIS_FOLDER = 'seminar';
 
     private GoogleDriveService $driveService;
 
@@ -63,30 +63,30 @@ class SyaratAdministrasiKolokiumController extends Controller
     }
 
     /**
-     * GET - ambil status syarat administrasi untuk 1 kolokium.
-     * Bisa diakses mahasiswa pemilik kolokium tsb & admin.
+     * GET - ambil status syarat administrasi untuk 1 seminar.
+     * Bisa diakses mahasiswa pemilik seminar tsb & admin.
      */
-    public function show($kolokiumId, Request $request)
+    public function show($seminarId, Request $request)
     {
         $user = $request->user();
         if (! $user) {
             return response()->json(['message' => 'User tidak ditemukan'], 404);
         }
 
-        $kolokium = Kolokium::find($kolokiumId);
-        if (! $kolokium) {
-            return response()->json(['message' => 'Kolokium tidak ditemukan'], 404);
+        $seminar = Seminar::find($seminarId);
+        if (! $seminar) {
+            return response()->json(['message' => 'Seminar tidak ditemukan'], 404);
         }
 
         if ($user->role === 'mahasiswa') {
-            if ($kolokium->mahasiswa_id !== $user->id) {
+            if ($seminar->mahasiswa_id !== $user->id) {
                 return response()->json(['message' => 'Unauthorized'], 403);
             }
         } elseif ($user->role !== 'admin') {
             return response()->json(['message' => 'Unauthorized'], 403);
         }
 
-        $syarat = SyaratAdministrasiKolokium::firstOrCreate(['kolokium_id' => $kolokium->id]);
+        $syarat = SyaratAdministrasiSeminar::firstOrCreate(['seminar_id' => $seminar->id]);
 
         return response()->json([
             'message' => 'Syarat administrasi berhasil didapatkan',
@@ -98,10 +98,10 @@ class SyaratAdministrasiKolokiumController extends Controller
 
     /**
      * POST - upload salah satu file syarat administrasi.
-     * $syaratKey: proposal | bukti_spp | transkrip | kartu_kolokium | makalah
-     * Hanya mahasiswa pemilik kolokium yang boleh upload.
+     * $syaratKey: proposal | bukti_spp | transkrip | kartu_seminar | makalah
+     * Hanya mahasiswa pemilik seminar yang boleh upload.
      */
-    public function upload($kolokiumId, string $syaratKey, Request $request)
+    public function upload($seminarId, string $syaratKey, Request $request)
     {
         $user = $request->user();
         if (! $user) {
@@ -112,12 +112,12 @@ class SyaratAdministrasiKolokiumController extends Controller
             return response()->json(['message' => 'Jenis syarat tidak valid'], 422);
         }
 
-        $kolokium = Kolokium::find($kolokiumId);
-        if (! $kolokium) {
-            return response()->json(['message' => 'Kolokium tidak ditemukan'], 404);
+        $seminar = Seminar::find($seminarId);
+        if (! $seminar) {
+            return response()->json(['message' => 'Seminar tidak ditemukan'], 404);
         }
 
-        if ($user->role !== 'mahasiswa' || $kolokium->mahasiswa_id !== $user->id) {
+        if ($user->role !== 'mahasiswa' || $seminar->mahasiswa_id !== $user->id) {
             return response()->json(['message' => 'Unauthorized'], 403);
         }
 
@@ -134,14 +134,14 @@ class SyaratAdministrasiKolokiumController extends Controller
             ], 422);
         }
 
-        $syarat = SyaratAdministrasiKolokium::firstOrCreate(['kolokium_id' => $kolokium->id]);
+        $syarat = SyaratAdministrasiSeminar::firstOrCreate(['seminar_id' => $seminar->id]);
 
         // Buat/reuse folder gdrive khusus mahasiswa ini.
-        // Struktur folder: berkas-siskom-dsvk (root) -> kolokium -> nim_nama
+        // Struktur folder: berkas-siskom-dsvk (root) -> seminar -> nim_nama
         if (! $syarat->drive_folder_id) {
             $folderId = $this->driveService->findOrCreateUserFolder(
-                $kolokium->nim,
-                $kolokium->nama,
+                $seminar->nim,
+                $seminar->nama,
                 self::JENIS_FOLDER
             );
             $syarat->drive_folder_id = $folderId;
@@ -149,7 +149,7 @@ class SyaratAdministrasiKolokiumController extends Controller
 
         $file = $request->file('file');
         $extension = $file->getClientOriginalExtension();
-        $fileName = Str::slug($config['label']) . '_' . $kolokium->nim . '.' . $extension;
+        $fileName = Str::slug($config['label']) . '_' . $seminar->nim . '.' . $extension;
 
         // ANTI-DUPLIKAT: replace file yang sama kalau sudah pernah upload sebelumnya,
         // bukan bikin file baru. ID & link Google Drive tetap sama.
@@ -182,7 +182,7 @@ class SyaratAdministrasiKolokiumController extends Controller
     /**
      * PATCH - admin verifikasi kelengkapan syarat administrasi.
      */
-    public function verify($kolokiumId, Request $request)
+    public function verify($seminarId, Request $request)
     {
         $user = $request->user();
         if (! $user) {
@@ -205,7 +205,7 @@ class SyaratAdministrasiKolokiumController extends Controller
             ], 422);
         }
 
-        $syarat = SyaratAdministrasiKolokium::where('kolokium_id', $kolokiumId)->first();
+        $syarat = SyaratAdministrasiSeminar::where('seminar_id', $seminarId)->first();
         if (! $syarat) {
             return response()->json(['message' => 'Syarat administrasi belum diisi'], 404);
         }
