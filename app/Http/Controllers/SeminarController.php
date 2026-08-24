@@ -119,6 +119,21 @@ class SeminarController extends Controller
             $query->where('status', $request->status);
         }
 
+        if ($request->filled('search')) {
+            $search = $request->search;
+
+            $query->where(function ($searchQuery) use ($search) {
+                $searchQuery->where('nama', 'like', "%{$search}%")
+                    ->orWhere('nim', 'like', "%{$search}%")
+                    ->orWhere('prodi', 'like', "%{$search}%")
+                    ->orWhere('judul', 'like', "%{$search}%")
+                    ->orWhere('namadosenpembimbing', 'like', "%{$search}%")
+                    ->orWhere('namadosenmoderator', 'like', "%{$search}%")
+                    ->orWhere('lokasi', 'like', "%{$search}%")
+                    ->orWhere('ruangan', 'like', "%{$search}%");
+            });
+        }
+
         $perPage = $this->resolvePerPage($request);
 
         return response()->json(
