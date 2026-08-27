@@ -15,7 +15,7 @@ class GoogleDriveAuthorize extends Command
     public function handle(): int
     {
         $client = new GoogleClient();
-        $client->setAuthConfig(storage_path('app/silvikultur-719cbf4f9484.json'));
+        $client->setAuthConfig(storage_path('app/google-oauth-client.json'));
         $client->addScope(GoogleDrive::DRIVE);
         $client->setAccessType('offline');   // wajib, supaya dapat refresh_token
         $client->setPrompt('consent');       // paksa munculkan consent screen lagi
