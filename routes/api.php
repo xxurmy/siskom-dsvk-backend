@@ -82,8 +82,6 @@ Route::prefix('auth')->middleware('auth:sanctum')->group(function () {
     // KARTU KOLOKIUM
     Route::get('/kartu-kolokium/my', [KartuKolokiumController::class, 'my']);
     Route::get('/kartu-kolokium/kolokium/{kolokiumId}', [KartuKolokiumController::class, 'byKolokium']);
-    Route::patch('/kartu-kolokium/bulk-status-paraf', [KartuKolokiumController::class, 'bulkUpdateStatusParaf']);
-    Route::patch('/kartu-kolokium/{id}/status-paraf', [KartuKolokiumController::class, 'updateStatusParaf']);
 
     // PESERTA SEMINAR
     Route::get('/peserta-seminar', [PesertaSeminarController::class, 'index']);
@@ -96,8 +94,6 @@ Route::prefix('auth')->middleware('auth:sanctum')->group(function () {
     // KARTU SEMINAR
     Route::get('/kartu-seminar/my', [KartuSeminarController::class, 'my']);
     Route::get('/kartu-seminar/seminar/{seminarId}', [KartuSeminarController::class, 'bySeminar']);
-    Route::patch('/kartu-seminar/bulk-status-paraf', [KartuSeminarController::class, 'bulkUpdateStatusParaf']);
-    Route::patch('/kartu-seminar/{id}/status-paraf', [KartuSeminarController::class, 'updateStatusParaf']);
 
     // UPDATE & DELETE - hanya admin
     Route::patch('/kolokium/{id}', [KolokiumController::class, 'update']);

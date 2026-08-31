@@ -25,8 +25,6 @@ class KartuSeminar extends Model
         'moderator',
         'namaforum',
         'nimforum',
-        'tandatangandosen',
-        'statusparaf',
     ];
 
     protected $casts = [

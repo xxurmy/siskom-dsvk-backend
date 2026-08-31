@@ -42,13 +42,6 @@ class KartuKolokiumController extends Controller
      * Query params yang didukung:
      * - search      : cari bebas di nama/nim pemrasaran, prodi, & moderator
      *                 (untuk dosen, ikut mencari di nama/nim forum/peserta juga)
-     * - statusparaf : filter status ('pending' | 'signed' | 'absent') — dipakai
-     *                 mis. dashboard buat hitung "belum ditandatangani" secara
-     *                 akurat lewat meta `total` paginator, tanpa perlu fetch
-     *                 semua halaman ke client.
-     * - hari_h      : kalau true (1), cuma ambil kartu yang tanggalnya sudah
-     *                 hari ini atau sebelumnya (dosen baru bisa tanda tangan
-     *                 kartu pada hari H atau setelahnya).
      * - page        : halaman ke berapa (Laravel paginator)
      * - per_page    : jumlah data per halaman (default 10, maksimal 100)
      */
@@ -95,23 +88,6 @@ class KartuKolokiumController extends Controller
                         ->orWhere('nimforum', 'like', "%{$search}%");
                 }
             });
-        }
-
-        // FILTER STATUS: dipakai dashboard buat hitung "belum ditandatangani"
-        // secara akurat lewat meta `total` paginator, tanpa perlu fetch semua
-        // halaman ke client.
-        if ($request->filled('statusparaf')) {
-            $query->where('statusparaf', $request->statusparaf);
-        }
-
-        // FILTER HARI H: kalau true, cuma ambil kartu yang tanggalnya SUDAH
-        // hari ini atau sebelumnya. Dipakai dashboard buat "urgent count" —
-        // karena dosen baru bisa tanda tangan kartu pada hari H atau setelahnya
-        // (lihat pengecekan Carbon::today()->lt($tanggal) di updateStatusParaf()
-        // di bawah), jadi kartu pending yang tanggalnya masih di masa depan
-        // belum bisa ditindaklanjuti sama sekali dan tidak boleh dihitung urgent.
-        if ($request->boolean('hari_h')) {
-            $query->whereDate('tanggal', '<=', now()->toDateString());
         }
 
         if ($user->role === 'dosen') {
@@ -180,196 +156,6 @@ class KartuKolokiumController extends Controller
         ]);
     }
 
-    public function updateStatusParaf(Request $request, $id)
-    {
-        $user = $request->user();
-        if (! $user) {
-            return response()->json([
-                'message' => 'User tidak ditemukan',
-            ], 404);
-        }
-
-        if ($user->role !== 'dosen') {
-            return response()->json([
-                'message' => 'Unauthorized',
-            ], 403);
-        }
-
-        $validated = $request->validate([
-            'statusparaf' => 'required|in:signed,absent',
-        ]);
-
-        $kartuKolokium = KartuKolokium::find($id);
-        if (! $kartuKolokium) {
-            return response()->json([
-                'message' => 'Kartu kolokium tidak ditemukan',
-            ], 404);
-        }
-
-        if ((int) $kartuKolokium->moderator_id !== (int) $user->id) {
-            return response()->json([
-                'message' => 'Unauthorized',
-            ], 403);
-        }
-
-        if (! $kartuKolokium->tanggal) {
-            return response()->json([
-                'message' => 'Tanggal kartu kolokium belum tersedia',
-            ], 422);
-        }
-
-        if (Carbon::today()->lt(Carbon::parse($kartuKolokium->tanggal)->startOfDay())) {
-            return response()->json([
-                'message' => 'Dosen hanya dapat menandatangani kartu kolokium pada hari H atau setelahnya',
-            ], 422);
-        }
-
-        if ($kartuKolokium->statusparaf === 'signed') {
-            return response()->json([
-                'message' => 'Status paraf sudah signed',
-                'kartu_kolokium' => $kartuKolokium,
-            ]);
-        }
-
-        $updateData = [
-            'statusparaf' => $validated['statusparaf'],
-            'tandatangandosen' => null,
-        ];
-
-        if ($validated['statusparaf'] === 'signed') {
-            if (empty($user->tandatangan)) {
-                return response()->json([
-                    'message' => 'Tanda tangan dosen belum tersedia',
-                ], 422);
-            }
-
-            $updateData['tandatangandosen'] = $user->tandatangan;
-        }
-
-        $kartuKolokium->update($updateData);
-
-        return response()->json([
-            'message' => 'Status paraf kartu kolokium berhasil diperbarui',
-            'kartu_kolokium' => $this->formatKartuKolokium($kartuKolokium, $user),
-        ]);
-    }
-
-    /**
-     * Update status paraf untuk BANYAK kartu kolokium sekaligus — dipakai
-     * tombol "Simpan" di halaman Absensi.
-     *
-     * Body:
-     * {
-     *   "items": [
-     *     { "id": 1, "statusparaf": "signed" },
-     *     { "id": 2, "statusparaf": "absent" }
-     *   ]
-     * }
-     *
-     * Diakses oleh:
-     * - dosen: hanya untuk kartu kolokium yang moderator_id-nya = dirinya.
-     * - admin: untuk kartu kolokium manapun, tanda tangan yang dipakai tetap
-     *   tanda tangan dosen MODERATOR kartu tsb (bukan tanda tangan admin).
-     *
-     * Validasi lain mengikuti updateStatusParaf(): sudah hari H, dan kalau
-     * signed maka dosen moderator wajib sudah punya foto tanda tangan.
-     *
-     * Response 200 kalau semua/sebagian berhasil (lihat "updated" & "errors"),
-     * 422 kalau SEMUA item gagal.
-     */
-    public function bulkUpdateStatusParaf(Request $request)
-    {
-        $user = $request->user();
-        if (! $user) {
-            return response()->json([
-                'message' => 'User tidak ditemukan',
-            ], 404);
-        }
-
-        if (! in_array($user->role, ['admin', 'dosen'], true)) {
-            return response()->json([
-                'message' => 'Unauthorized',
-            ], 403);
-        }
-
-        $validated = $request->validate([
-            'items' => 'required|array|min:1',
-            'items.*.id' => 'required|integer|distinct|exists:kartu_kolokiums,id',
-            'items.*.statusparaf' => 'required|in:signed,absent',
-        ]);
-
-        $ids = collect($validated['items'])->pluck('id')->all();
-        $kartuKolokiums = KartuKolokium::whereIn('id', $ids)->get()->keyBy('id');
-
-        $results = [];
-        $errors = [];
-
-        foreach ($validated['items'] as $item) {
-            $kartuKolokium = $kartuKolokiums->get($item['id']);
-
-            if (! $kartuKolokium) {
-                $errors[] = ['id' => $item['id'], 'message' => 'Kartu kolokium tidak ditemukan'];
-                continue;
-            }
-
-            if ($user->role === 'dosen' && (int) $kartuKolokium->moderator_id !== (int) $user->id) {
-                $errors[] = ['id' => $item['id'], 'message' => 'Unauthorized untuk kartu kolokium ini'];
-                continue;
-            }
-
-            if (! $kartuKolokium->tanggal) {
-                $errors[] = ['id' => $item['id'], 'message' => 'Tanggal kartu kolokium belum tersedia'];
-                continue;
-            }
-
-            if (Carbon::today()->lt(Carbon::parse($kartuKolokium->tanggal)->startOfDay())) {
-                $errors[] = ['id' => $item['id'], 'message' => 'Hanya dapat diproses pada hari H atau setelahnya'];
-                continue;
-            }
-
-            if ($kartuKolokium->statusparaf === 'signed') {
-                // Status final, tidak diubah — tetap dikembalikan sebagai "updated"
-                // supaya frontend bisa refresh row-nya tanpa dianggap error.
-                $results[] = $this->formatKartuKolokium($kartuKolokium, $user);
-                continue;
-            }
-
-            $updateData = [
-                'statusparaf' => $item['statusparaf'],
-                'tandatangandosen' => null,
-            ];
-
-            if ($item['statusparaf'] === 'signed') {
-                // Tanda tangan selalu diambil dari dosen MODERATOR kartu ini,
-                // bukan dari user yang sedang login — supaya konsisten baik
-                // saat diakses dosen sendiri maupun oleh admin.
-                $moderatorUser = ((int) $kartuKolokium->moderator_id === (int) $user->id)
-                    ? $user
-                    : User::find($kartuKolokium->moderator_id);
-
-                if (! $moderatorUser || empty($moderatorUser->tandatangan)) {
-                    $errors[] = ['id' => $item['id'], 'message' => 'Tanda tangan dosen moderator belum tersedia'];
-                    continue;
-                }
-
-                $updateData['tandatangandosen'] = $moderatorUser->tandatangan;
-            }
-
-            $kartuKolokium->update($updateData);
-            $results[] = $this->formatKartuKolokium($kartuKolokium->fresh(), $user);
-        }
-
-        $allFailed = count($results) === 0 && count($errors) > 0;
-
-        return response()->json([
-            'message' => empty($errors)
-                ? 'Status paraf kartu kolokium berhasil diperbarui'
-                : ($allFailed ? 'Gagal memperbarui status paraf' : 'Sebagian data berhasil diperbarui, sebagian gagal'),
-            'updated' => $results,
-            'errors' => $errors,
-        ], $allFailed ? 422 : 200);
-    }
-
     private function formatKartuKolokium(KartuKolokium $kartuKolokium, User $user): array
     {
         $data = [
@@ -385,8 +171,6 @@ class KartuKolokiumController extends Controller
             'nimpemrasaran' => $kartuKolokium->nimpemrasaran,
             'prodi' => $kartuKolokium->prodi,
             'moderator' => $kartuKolokium->moderator,
-            'tandatangandosen' => $kartuKolokium->statusparaf === 'signed' ? $kartuKolokium->tandatangandosen : null,
-            'statusparaf' => $kartuKolokium->statusparaf,
         ];
 
         // Kolom peserta (nama/nim forum) relevan untuk dosen (moderator halaman
