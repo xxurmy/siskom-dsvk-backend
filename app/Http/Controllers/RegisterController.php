@@ -22,7 +22,6 @@ class RegisterController extends Controller
             'prodi'    => 'required|string|max:100',
             'email'    => 'required|email|unique:users,email|max:255',
             'password' => 'required|string|min:8|confirmed', // butuh password_confirmation
-            'foto'     => 'nullable|string',
         ]);
 
         if ($validator->fails()) {
@@ -40,8 +39,6 @@ class RegisterController extends Controller
             'prodi'    => $request->prodi,
             'email'    => $request->email,
             'password' => Hash::make($request->password),
-            'foto'     => $request->foto,
-            'status'   => true,
         ]);
 
         $token = $dosen->createToken('auth_token')->plainTextToken;
@@ -66,7 +63,6 @@ class RegisterController extends Controller
             'prodi'    => 'required|string|max:100',
             'email'    => 'required|email|unique:users,email|max:255',
             'password' => 'required|string|min:8|confirmed',
-            'foto'     => 'nullable|string',
         ]);
 
         if ($validator->fails()) {
@@ -84,8 +80,6 @@ class RegisterController extends Controller
             'prodi'    => $request->prodi,
             'email'    => $request->email,
             'password' => Hash::make($request->password),
-            'foto'     => $request->foto,
-            'status'   => true,
         ]);
 
         $token = $mahasiswa->createToken('auth_token')->plainTextToken;

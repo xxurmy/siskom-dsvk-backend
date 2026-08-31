@@ -57,7 +57,6 @@ class UserController extends Controller
      * Query params yang didukung:
      * - role     : filter role ('admin' | 'dosen' | 'mahasiswa')
      * - prodi    : filter prodi
-     * - status   : filter status
      * - search   : cari bebas di kolom nama, username, email, nim, & nip
      * - per_page : jumlah data per halaman (default 10, maksimal 100)
      */
@@ -83,9 +82,6 @@ class UserController extends Controller
         }
         if ($request->has('prodi')) {
             $query->where('prodi', $request->prodi);
-        }
-        if ($request->has('status')) {
-            $query->where('status', $request->status);
         }
 
         // SEARCH: satu kata kunci dicocokkan ke beberapa kolom sekaligus
@@ -115,9 +111,6 @@ class UserController extends Controller
                 'username' => $u->username,
                 'email'    => $u->email,
                 'prodi'    => $u->prodi,
-                'foto'     => $u->foto,
-                'tandatangan' => $u->tandatangan,
-                'status'   => $u->status,
             ];
         });
 
@@ -160,9 +153,6 @@ class UserController extends Controller
                 'username' => $user->username,
                 'email'    => $user->email,
                 'prodi'    => $user->prodi,
-                'foto'     => $user->foto,
-                'tandatangan' => $user->tandatangan,
-                'status'   => $user->status,
             ],
         ]);
     }
@@ -232,8 +222,6 @@ class UserController extends Controller
             'nim'      => 'sometimes|nullable|string|unique:users,nim,' . $user->id . '|max:11',
             'nip'      => 'sometimes|nullable|string|unique:users,nip,' . $user->id . '|max:20',
             'prodi'    => 'sometimes|required|string|max:100',
-            'foto'     => 'nullable|string',
-            'tandatangan' => 'nullable|string',
         ]);
 
         $user->update($validatedData);
@@ -241,78 +229,6 @@ class UserController extends Controller
         return response()->json([
             'message' => 'Profil berhasil diperbarui',
             'user'    => $user,
-        ]);
-    }
-
-    public function uploadFotoProfil(Request $request)
-    {
-        $user = $request->user();
-        if (! $user) {
-            return response()->json([
-                'message' => 'User tidak ditemukan',
-            ], 404);
-        }
-
-        $request->validate([
-            'foto' => 'required|image|mimes:jpg,jpeg,png,webp|max:2048' // 2MB
-        ]);
-
-        if ($user->foto) {
-            Storage::disk('backblaze')->delete($this->extractPath($user->foto));
-        }
-
-        $path = $request->file('foto')->store('profile-photos', 'backblaze');
-
-        $user->update([
-            'foto' => url('/api/auth/images/' . $path),
-        ]);
-
-        return response()->json([
-            'message' => 'Foto profil berhasil diupload',
-            'foto' => $user->foto,
-            'user' => $user,
-        ]);
-    }
-
-    public function uploadTandaTangan(Request $request)
-    {
-        $user = $request->user();
-        if (! $user) {
-            return response()->json([
-                'message' => 'User tidak ditemukan',
-            ], 404);
-        }
-
-        $request->validate([
-            'tandatangan' => 'required|image|mimes:jpg,jpeg,png,webp|max:2048',
-        ]);
-
-        if ($user->tandatangan) {
-            Storage::disk('backblaze')->delete($this->extractPath($user->tandatangan));
-        }
-
-        $path = $request->file('tandatangan')->store('signatures', 'backblaze');
-
-        $user->update([
-            'tandatangan' => url('/api/auth/images/' . $path),
-        ]);
-
-        KartuKolokium::where('moderator_id', $user->id)
-            ->where('statusparaf', 'signed')
-            ->update([
-            'tandatangandosen' => $user->tandatangan,
-        ]);
-
-        KartuSeminar::where('moderator_id', $user->id)
-            ->where('statusparaf', 'signed')
-            ->update([
-                'tandatangandosen' => $user->tandatangan,
-            ]);
-
-        return response()->json([
-            'message' => 'Tanda tangan berhasil diupload',
-            'tandatangan' => $user->tandatangan,
-            'user' => $user,
         ]);
     }
 
@@ -355,47 +271,10 @@ class UserController extends Controller
             ], 422);
         }
 
-        // Bersihkan file terkait di Backblaze sebelum menghapus record
-        if ($targetUser->foto) {
-            Storage::disk('backblaze')->delete($this->extractPath($targetUser->foto));
-        }
-        if ($targetUser->tandatangan) {
-            Storage::disk('backblaze')->delete($this->extractPath($targetUser->tandatangan));
-        }
-
         $targetUser->delete();
 
         return response()->json([
             'message' => 'User berhasil dihapus',
         ]);
     }
-
-    /**
-     * Ambil kembali path relatif (mis. "profile-photos/xxx.jpg") dari URL lengkap
-     * yang tersimpan di kolom foto/tandatangan, supaya bisa dipakai untuk delete di B2.
-     */
-    private function extractPath(string $url): string
-    {
-        $prefix = url('/api/auth/images/');
-        return ltrim(str_replace($prefix, '', $url), '/');
-    }
-
-    /**
-     * Proxy/stream file dari Backblaze B2 (private bucket) lewat Laravel,
-     * dengan cache header 7 hari di browser/CDN.
-     */
-    public function showImage(Request $request, string $path)
-    {
-        $disk = Storage::disk('backblaze');
-
-        if (! $disk->exists($path)) {
-            return response()->json([
-                'message' => 'File tidak ditemukan',
-            ], 404);
-        }
-
-        return $disk->response($path, null, [
-            'Cache-Control' => 'public, max-age=604800', // 7 hari
-        ]);
-    }   
 }

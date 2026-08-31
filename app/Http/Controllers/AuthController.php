@@ -38,12 +38,6 @@ class AuthController extends Controller
             ], 401);
         }
 
-        if (! $user->status) {
-            return response()->json([
-                'message' => 'Akun tidak aktif, hubungi admin',
-            ], 403);
-        }
-
         // Hapus token lama (opsional, biar single-session)
         // $user->tokens()->delete();
 
@@ -58,7 +52,6 @@ class AuthController extends Controller
                 'username' => $user->username,
                 'email'    => $user->email,
                 'prodi'    => $user->prodi,
-                'foto'     => $user->foto,
             ],
             'token_type'   => 'Bearer',
             'access_token' => $token,

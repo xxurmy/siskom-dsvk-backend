@@ -24,9 +24,6 @@ class User extends Authenticatable
         'prodi',
         'email',
         'password',
-        'foto',
-        'status',
-        'tandatangan',
     ];
 
     protected $hidden = [
@@ -35,7 +32,6 @@ class User extends Authenticatable
     ];
 
     protected $casts = [
-        'status'            => 'boolean',
         'email_verified_at' => 'datetime',
         'password'          => 'hashed', // Laravel 10+ otomatis hash saat set
     ];

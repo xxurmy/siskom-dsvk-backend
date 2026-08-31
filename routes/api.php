@@ -33,12 +33,7 @@ Route::prefix('auth')->middleware('auth:sanctum')->group(function () {
     Route::get('/dosen', [UserController::class, 'dosenList']);
     Route::get('/mahasiswa', [UserController::class, 'mahasiswaList']);
     Route::patch('/profile', [UserController::class, 'updateProfile']);
-    Route::post('/profile/foto', [UserController::class, 'uploadFotoProfil']);
-    Route::post('/profile/tandatangan', [UserController::class, 'uploadTandaTangan']);
     Route::post('/change-password', [AuthController::class, 'changePassword']);
-
-    Route::get('/images/{path}', [UserController::class, 'showImage'])
-    ->where('path', '.*'); // biar bisa tangkap path dengan folder, mis: profile-photos/xxx.jpg
     
     // READ - semua role yang login
     Route::get('/kolokium/my', [KolokiumController::class, 'myKolokium']); // WAJIB di atas /{id}
