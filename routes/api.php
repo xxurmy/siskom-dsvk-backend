@@ -103,11 +103,13 @@ Route::prefix('auth')->middleware('auth:sanctum')->group(function () {
 
     // SYARAT ADMINISTRASI KOLOKIUM
     Route::get('/kolokium/{id}/syarat-administrasi', [SyaratAdministrasiKolokiumController::class, 'show']);
+    Route::get('/kolokium/{id}/syarat-administrasi/{syaratKey}/file', [SyaratAdministrasiKolokiumController::class, 'showFile']);
     Route::post('/kolokium/{id}/syarat-administrasi/{syaratKey}', [SyaratAdministrasiKolokiumController::class, 'upload']);
     Route::patch('/kolokium/{id}/syarat-administrasi/verify', [SyaratAdministrasiKolokiumController::class, 'verify']);
 
     // SYARAT ADMINISTRASI SEMINAR
     Route::get('/seminar/{id}/syarat-administrasi', [SyaratAdministrasiSeminarController::class, 'show']);
+    Route::get('/seminar/{id}/syarat-administrasi/{syaratKey}/file', [SyaratAdministrasiSeminarController::class, 'showFile']);
     Route::post('/seminar/{id}/syarat-administrasi/{syaratKey}', [SyaratAdministrasiSeminarController::class, 'upload']);
     Route::patch('/seminar/{id}/syarat-administrasi/verify', [SyaratAdministrasiSeminarController::class, 'verify']);   
 });

@@ -5,8 +5,8 @@ namespace App\Http\Controllers;
 
 use App\Models\Kolokium;
 use App\Models\SyaratAdministrasiKolokium;
-use App\Services\GoogleDriveService;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
@@ -14,54 +14,45 @@ use Illuminate\Validation\Rule;
 class SyaratAdministrasiKolokiumController extends Controller
 {
     /**
-     * Mapping key syarat -> [kolom url, kolom drive_id, kolom uploaded_at, aturan validasi]
+     * Mapping key syarat -> [kolom url, kolom uploaded_at, aturan validasi]
      * PENTING: key di sini harus PERSIS SAMA dengan key yang dikembalikan
      * SyaratAdministrasiKolokium::daftarSyarat() di model, supaya frontend
      * (GET utk nampilin status & POST utk upload) mengacu ke key yang sama.
      */
     private const SYARAT_MAP = [
         'proposal' => [
-            'url_col' => 'proposal_url', 'id_col' => 'proposal_drive_id', 'at_col' => 'proposal_uploaded_at',
+            'url_col' => 'proposal_url', 'at_col' => 'proposal_uploaded_at',
             'rule' => 'required|file|mimes:pdf|max:51200', // 50MB
             'label' => 'Proposal',
         ],
         'bukti_spp' => [
-            'url_col' => 'bukti_spp_url', 'id_col' => 'bukti_spp_drive_id', 'at_col' => 'bukti_spp_uploaded_at',
+            'url_col' => 'bukti_spp_url', 'at_col' => 'bukti_spp_uploaded_at',
             'rule' => 'required|file|mimes:pdf|max:10240', // 10MB
             'label' => 'Bukti Lunas SPP',
         ],
         'transkrip' => [
-            'url_col' => 'transkrip_url', 'id_col' => 'transkrip_drive_id', 'at_col' => 'transkrip_uploaded_at',
+            'url_col' => 'transkrip_url', 'at_col' => 'transkrip_uploaded_at',
             'rule' => 'required|file|mimes:pdf|max:10240', // 10MB
             'label' => 'Transkrip Nilai',
         ],
         'kartu_kolokium' => [
-            'url_col' => 'kartu_kolokium_url', 'id_col' => 'kartu_kolokium_drive_id', 'at_col' => 'kartu_kolokium_uploaded_at',
+            'url_col' => 'kartu_kolokium_url', 'at_col' => 'kartu_kolokium_uploaded_at',
             'rule' => 'required|file|mimes:pdf,jpg,jpeg,png|max:10240', // 10MB
             'label' => 'Kartu Kolokium',
         ],
         'makalah' => [
-            'url_col' => 'makalah_url', 'id_col' => 'makalah_drive_id', 'at_col' => 'makalah_uploaded_at',
+            'url_col' => 'makalah_url', 'at_col' => 'makalah_uploaded_at',
             'rule' => 'required|file|mimes:pdf|max:51200', // 50MB
             'label' => 'Makalah Kolokium',
         ],
     ];
 
     /**
-     * Jenis folder root di Google Drive untuk modul ini. Dikirim eksplisit
-     * ke GoogleDriveService::findOrCreateUserFolder() supaya berkas
-     * kolokium & seminar tidak pernah tercampur, dan supaya kedua
-     * controller (Kolokium & Seminar) konsisten memberi argumen ini
-     * secara eksplisit, bukan mengandalkan nilai default di service.
+     * Jenis folder root untuk modul ini. Dipakai supaya berkas kolokium &
+     * seminar tidak pernah tercampur dalam struktur folder di storage lokal:
+     * storage/app/private/berkas-{JENIS_FOLDER}/{nim}_{nama}/...
      */
     private const JENIS_FOLDER = 'kolokium';
-
-    private GoogleDriveService $driveService;
-
-    public function __construct(GoogleDriveService $driveService)
-    {
-        $this->driveService = $driveService;
-    }
 
     /**
      * GET - ambil status syarat administrasi untuk 1 kolokium.
@@ -101,6 +92,14 @@ class SyaratAdministrasiKolokiumController extends Controller
      * POST - upload salah satu file syarat administrasi.
      * $syaratKey: proposal | bukti_spp | transkrip | kartu_kolokium | makalah
      * Hanya mahasiswa pemilik kolokium yang boleh upload.
+     *
+     * Disimpan ke disk 'private' (storage/app/private, TIDAK bisa diakses
+     * langsung lewat URL publik) di folder:
+     * berkas-kolokium/{nim}_{nama}/{nama-file-tetap}
+     *
+     * Karena nama file SELALU SAMA per syarat (mis. proposal_{nim}.pdf),
+     * upload ulang otomatis menimpa file lama -> anti-duplikat tanpa
+     * logic hapus-lalu-buat-baru.
      */
     public function upload($kolokiumId, string $syaratKey, Request $request)
     {
@@ -137,46 +136,73 @@ class SyaratAdministrasiKolokiumController extends Controller
 
         $syarat = SyaratAdministrasiKolokium::firstOrCreate(['kolokium_id' => $kolokium->id]);
 
-        // Buat/reuse folder gdrive khusus mahasiswa ini.
-        // Struktur folder: berkas-siskom-dsvk (root) -> kolokium -> nim_nama
-        if (! $syarat->drive_folder_id) {
-            $folderId = $this->driveService->findOrCreateUserFolder(
-                $kolokium->nim,
-                $kolokium->nama,
-                self::JENIS_FOLDER
-            );
-            $syarat->drive_folder_id = $folderId;
-        }
-
         $file = $request->file('file');
         $extension = $file->getClientOriginalExtension();
+
+        // Struktur folder: storage/app/private/berkas-kolokium/{nim}_{nama}/
+        $folderName = $this->sanitizeFolderName($kolokium->nim . '_' . $kolokium->nama);
+        $folderPath = 'berkas-' . self::JENIS_FOLDER . '/' . $folderName;
+
+        // Nama file tetap per syarat -> upload ulang otomatis replace file lama
         $fileName = Str::slug($config['label']) . '_' . $kolokium->nim . '.' . $extension;
 
-        // ANTI-DUPLIKAT: replace file yang sama kalau sudah pernah upload sebelumnya,
-        // bukan bikin file baru. ID & link Google Drive tetap sama.
-        $oldDriveId = $syarat->{$config['id_col']};
-        $uploaded = null;
+        $path = $file->storeAs($folderPath, $fileName, 'private');
 
-        if ($oldDriveId) {
-            $uploaded = $this->driveService->replaceFile($oldDriveId, $file, $fileName);
-        }
-
-        // Belum pernah upload sebelumnya, ATAU file lama sudah tidak ada di Drive (fallback)
-        if (! $uploaded) {
-            $uploaded = $this->driveService->uploadFile($syarat->drive_folder_id, $file, $fileName);
-        }
-
+        // URL disimpan sebagai path relatif saja (bukan URL publik), karena
+        // file harus diambil lewat route ber-auth (SyaratAdministrasiKolokiumController@showFile),
+        // bukan diakses langsung. Frontend membangun URL akses dari path ini.
         $syarat->update([
-            $config['url_col'] => $uploaded['url'],
-            $config['id_col']  => $uploaded['id'],
+            $config['url_col'] => $path,
             $config['at_col']  => now(),
             'status' => 'menunggu_verifikasi',
         ]);
 
         return response()->json([
             'message' => $config['label'] . ' berhasil diupload',
-            'url'     => $uploaded['url'],
+            'url'     => $path,
             'syarat'  => $syarat->fresh()->daftarSyarat(),
+        ]);
+    }
+
+    /**
+     * GET - stream/download file syarat administrasi secara aman (butuh login).
+     * Mahasiswa hanya bisa akses berkas miliknya sendiri, admin bisa akses semua.
+     * Route: GET /kolokium/{id}/syarat-administrasi/{syaratKey}/file
+     */
+    public function showFile($kolokiumId, string $syaratKey, Request $request)
+    {
+        $user = $request->user();
+        if (! $user) {
+            return response()->json(['message' => 'User tidak ditemukan'], 404);
+        }
+
+        if (! array_key_exists($syaratKey, self::SYARAT_MAP)) {
+            return response()->json(['message' => 'Jenis syarat tidak valid'], 422);
+        }
+
+        $kolokium = Kolokium::find($kolokiumId);
+        if (! $kolokium) {
+            return response()->json(['message' => 'Kolokium tidak ditemukan'], 404);
+        }
+
+        if ($user->role === 'mahasiswa') {
+            if ($kolokium->mahasiswa_id !== $user->id) {
+                return response()->json(['message' => 'Unauthorized'], 403);
+            }
+        } elseif ($user->role !== 'admin') {
+            return response()->json(['message' => 'Unauthorized'], 403);
+        }
+
+        $syarat = SyaratAdministrasiKolokium::where('kolokium_id', $kolokium->id)->first();
+        $config = self::SYARAT_MAP[$syaratKey];
+        $path = $syarat?->{$config['url_col']};
+
+        if (! $path || ! Storage::disk('private')->exists($path)) {
+            return response()->json(['message' => 'Berkas tidak ditemukan'], 404);
+        }
+
+        return Storage::disk('private')->response($path, null, [
+            'Cache-Control' => 'private, max-age=3600',
         ]);
     }
 
@@ -224,5 +250,10 @@ class SyaratAdministrasiKolokiumController extends Controller
             'message' => 'Status syarat administrasi berhasil diperbarui',
             'syarat'  => $syarat->fresh(),
         ]);
+    }
+
+    private function sanitizeFolderName(string $name): string
+    {
+        return preg_replace('/[\/\\\?%*:|"<>]/', '-', $name);
     }
 }

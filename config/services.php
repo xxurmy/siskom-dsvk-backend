@@ -35,8 +35,4 @@ return [
         ],
     ],
 
-    'google_drive' => [
-        'root_folder_id'   => env('GOOGLE_DRIVE_ROOT_FOLDER_ID'),
-    ],
-
 ];
