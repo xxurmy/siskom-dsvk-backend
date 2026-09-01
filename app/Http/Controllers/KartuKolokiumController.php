@@ -90,15 +90,10 @@ class KartuKolokiumController extends Controller
             });
         }
 
-        if ($user->role === 'dosen') {
-            $query->orderBy('tanggal', 'desc');
-        } else {
-            $query->orderBy('tanggal', 'asc');
-        }
-
         $perPage = $this->resolvePerPage($request);
 
         $kartuKolokiums = $query
+            ->orderBy('tanggal', 'desc')
             ->paginate($perPage)
             ->withQueryString()
             ->through(fn (KartuKolokium $kartuKolokium) => $this->formatKartuKolokium($kartuKolokium, $user));

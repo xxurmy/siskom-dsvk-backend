@@ -71,15 +71,10 @@ class KartuSeminarController extends Controller
             });
         }
 
-        if ($user->role === 'dosen') {
-            $query->orderBy('tanggal', 'desc');
-        } else {
-            $query->orderBy('tanggal', 'asc');
-        }
-
         $perPage = $this->resolvePerPage($request);
 
         $kartuSeminars = $query
+            ->orderBy('tanggal', 'desc')
             ->paginate($perPage)
             ->withQueryString()
             ->through(fn (KartuSeminar $kartuSeminar) => $this->formatKartuSeminar($kartuSeminar, $user));
