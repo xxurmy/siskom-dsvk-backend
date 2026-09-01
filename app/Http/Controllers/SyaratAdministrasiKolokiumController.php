@@ -100,6 +100,13 @@ class SyaratAdministrasiKolokiumController extends Controller
      * Karena nama file SELALU SAMA per syarat (mis. proposal_{nim}.pdf),
      * upload ulang otomatis menimpa file lama -> anti-duplikat tanpa
      * logic hapus-lalu-buat-baru.
+     *
+     * PERBAIKAN: untuk syarat yang mengizinkan lebih dari satu ekstensi
+     * (kartu_kolokium: pdf/jpg/jpeg/png), nama file lama bisa beda ekstensi
+     * dari file baru (mis. dulu .jpg, sekarang upload .pdf). Kalau hanya
+     * mengandalkan overwrite by-name, file lama dengan ekstensi berbeda
+     * akan jadi sampah (orphan) di storage. Makanya sebelum simpan file
+     * baru, file lama (jika ada & path-nya berbeda) dihapus eksplisit.
      */
     public function upload($kolokiumId, string $syaratKey, Request $request)
     {
@@ -145,6 +152,14 @@ class SyaratAdministrasiKolokiumController extends Controller
 
         // Nama file tetap per syarat -> upload ulang otomatis replace file lama
         $fileName = Str::slug($config['label']) . '_' . $kolokium->nim . '.' . $extension;
+        $newPath = $folderPath . '/' . $fileName;
+
+        // Hapus file lama kalau path-nya berbeda dari file baru (mis. beda
+        // ekstensi: jpg -> pdf), supaya tidak ada file orphan menumpuk.
+        $oldPath = $syarat->{$config['url_col']};
+        if ($oldPath && $oldPath !== $newPath && Storage::disk('private')->exists($oldPath)) {
+            Storage::disk('private')->delete($oldPath);
+        }
 
         $path = $file->storeAs($folderPath, $fileName, 'private');
 
@@ -168,6 +183,14 @@ class SyaratAdministrasiKolokiumController extends Controller
      * GET - stream/download file syarat administrasi secara aman (butuh login).
      * Mahasiswa hanya bisa akses berkas miliknya sendiri, admin bisa akses semua.
      * Route: GET /kolokium/{id}/syarat-administrasi/{syaratKey}/file
+     *
+     * PERBAIKAN: sebelumnya pakai Cache-Control: max-age=3600 tanpa validator,
+     * sehingga browser menyajikan file dari cache lokal selama 1 jam meski
+     * file di server sudah di-overwrite (record uploaded_at sudah berubah,
+     * file fisik sudah baru). Sekarang pakai no-cache + Last-Modified/ETag
+     * berbasis kolom uploaded_at, jadi browser WAJIB revalidate ke server
+     * tiap request: kalau file belum berubah dapat 304 (hemat bandwidth),
+     * begitu file berubah langsung dapat isi terbaru.
      */
     public function showFile($kolokiumId, string $syaratKey, Request $request)
     {
@@ -201,8 +224,12 @@ class SyaratAdministrasiKolokiumController extends Controller
             return response()->json(['message' => 'Berkas tidak ditemukan'], 404);
         }
 
+        $lastModified = $syarat->{$config['at_col']};
+
         return Storage::disk('private')->response($path, null, [
-            'Cache-Control' => 'private, max-age=3600',
+            'Cache-Control' => 'private, no-cache, must-revalidate',
+            'Last-Modified' => $lastModified?->toRfc7231String(),
+            'ETag' => '"' . md5($path . $lastModified) . '"',
         ]);
     }
 
