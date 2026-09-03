@@ -1,0 +1,115 @@
+<?php
+
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Route;
+use App\Http\Controllers\AuthController;
+use App\Http\Controllers\RegisterController;
+Use App\Http\Controllers\UserController;
+use App\Http\Controllers\KolokiumController;
+use App\Http\Controllers\KartuKolokiumController;
+use App\Http\Controllers\PesertaKolokiumController;
+use App\Http\Controllers\SeminarController;
+use App\Http\Controllers\PesertaSeminarController;
+use App\Http\Controllers\KartuSeminarController;
+use App\Http\Controllers\SyaratAdministrasiKolokiumController;
+use App\Http\Controllers\SyaratAdministrasiSeminarController;
+
+// Auth
+Route::post('/login', [AuthController::class, 'login']);
+
+// Register (publik, admin tidak disediakan endpoint register karena biasanya dibuat manual/seeder)
+Route::post('/register/dosen', [RegisterController::class, 'registerDosen']);
+Route::post('/register/mahasiswa', [RegisterController::class, 'registerMahasiswa']);
+Route::post('/forgot-password', [AuthController::class, 'forgotPassword'])
+    ->middleware('throttle:3,1'); // maksimal 3 request per menit
+Route::post('/reset-password', [AuthController::class, 'resetPassword']);
+
+Route::prefix('auth')->middleware('auth:sanctum')->group(function () {
+    Route::post('/logout', [AuthController::class, 'logout']);
+    Route::get('/profile', [UserController::class, 'profile']);
+    Route::get('/users', [UserController::class, 'index']);
+    Route::get('/users/{id}', [UserController::class, 'show']);
+    Route::delete('/users/{id}', [UserController::class, 'destroy']);
+    Route::get('/dosen', [UserController::class, 'dosenList']);
+    Route::get('/mahasiswa', [UserController::class, 'mahasiswaList']);
+    Route::patch('/profile', [UserController::class, 'updateProfile']);
+    Route::post('/change-password', [AuthController::class, 'changePassword']);
+    
+    // READ - semua role yang login
+    Route::get('/kolokium/my', [KolokiumController::class, 'myKolokium']); // WAJIB di atas /{id}
+    Route::get('/kolokium', [KolokiumController::class, 'index']);
+    Route::get('/kolokium/{id}', [KolokiumController::class, 'show']);
+
+    // export file kolokium, hanya admin yang bisa
+    Route::get('/kolokium/{id}/export-rekapitulasi-nilai-kolokium', [KolokiumController::class, 'exportRekapitulasiNilai']);
+    Route::get('/kolokium/{id}/export-lembar-penilaian-kolokium', [KolokiumController::class, 'exportLembarPenilaian']);
+    Route::get('/kolokium/{id}/export-daftar-hadir-kolokium', [KolokiumController::class, 'exportDaftarHadirKolokium']);
+    Route::get('/kolokium/{id}/export-berita-acara-kolokium', [KolokiumController::class, 'exportBeritaAcaraKolokium']);;
+    Route::get('/kolokium/{id}/export-kesediaan-moderator-kolokium', [KolokiumController::class, 'exportSuratKesediaanModeratorKolokium']);
+    Route::get('/kolokium/{id}/export-pengumuman-kolokium', [KolokiumController::class, 'exportPengumumanKolokium']);
+
+    // CREATE - hanya mahasiswa 
+    Route::post('/kolokium', [KolokiumController::class, 'store']);
+    Route::patch('/kolokium/{id}/resubmit', [KolokiumController::class, 'resubmit']);
+
+    // SEMINAR
+    Route::get('/seminar/my', [SeminarController::class, 'mySeminar']);
+    Route::get('/seminar', [SeminarController::class, 'index']);
+    Route::get('/seminar/{id}', [SeminarController::class, 'show']);
+    Route::post('/seminar', [SeminarController::class, 'store']);
+    Route::patch('/seminar/{id}/resubmit', [SeminarController::class, 'resubmit']);
+
+    // export file seminar, hanya admin yang bisa
+    Route::get('/seminar/{id}/export-rekapitulasi-nilai-seminar', [SeminarController::class, 'exportRekapitulasiNilai']);
+    Route::get('/seminar/{id}/export-lembar-penilaian-seminar', [SeminarController::class, 'exportLembarPenilaian']);
+    Route::get('/seminar/{id}/export-daftar-hadir-seminar', [SeminarController::class, 'exportDaftarHadirSeminar']);
+    Route::get('/seminar/{id}/export-berita-acara-seminar', [SeminarController::class, 'exportBeritaAcaraSeminar']);;
+    Route::get('/seminar/{id}/export-kesediaan-moderator-seminar', [SeminarController::class, 'exportSuratKesediaanModerator']);
+    Route::get('/seminar/{id}/export-pengumuman-seminar', [SeminarController::class, 'exportPengumuman']);
+
+    // PESERTA KOLOKIUM
+    // Admin dan Dosen
+    Route::get('/peserta-kolokium', [PesertaKolokiumController::class, 'index']);
+    // Mahasiswa
+    // get my kolokium peserta (kolokium yang diikuti)
+    Route::get('/peserta-kolokium/my-kolokium', [PesertaKolokiumController::class, 'myKolokiumPeserta']);
+    // get my peserta kolokium (peserta kolokium saya)
+    Route::get('/peserta-kolokium/my-peserta', [PesertaKolokiumController::class, 'myPesertaKolokium']);
+    Route::get('/peserta-kolokium/{id}', [PesertaKolokiumController::class, 'show']);
+    Route::post('/peserta-kolokium', [PesertaKolokiumController::class, 'store']);
+    Route::patch('/peserta-kolokium/{id}/status', [PesertaKolokiumController::class, 'updateStatus']);
+
+    // KARTU KOLOKIUM
+    Route::get('/kartu-kolokium/my', [KartuKolokiumController::class, 'my']);
+    Route::get('/kartu-kolokium/kolokium/{kolokiumId}', [KartuKolokiumController::class, 'byKolokium']);
+
+    // PESERTA SEMINAR
+    Route::get('/peserta-seminar', [PesertaSeminarController::class, 'index']);
+    Route::get('/peserta-seminar/my-seminar', [PesertaSeminarController::class, 'mySeminarPeserta']);
+    Route::get('/peserta-seminar/my-peserta', [PesertaSeminarController::class, 'myPesertaSeminar']);
+    Route::get('/peserta-seminar/{id}', [PesertaSeminarController::class, 'show']);
+    Route::post('/peserta-seminar', [PesertaSeminarController::class, 'store']);
+    Route::patch('/peserta-seminar/{id}/status', [PesertaSeminarController::class, 'updateStatus']);
+
+    // KARTU SEMINAR
+    Route::get('/kartu-seminar/my', [KartuSeminarController::class, 'my']);
+    Route::get('/kartu-seminar/seminar/{seminarId}', [KartuSeminarController::class, 'bySeminar']);
+
+    // UPDATE & DELETE - hanya admin
+    Route::patch('/kolokium/{id}', [KolokiumController::class, 'update']);
+    Route::delete('/kolokium/{id}', [KolokiumController::class, 'destroy']);
+    Route::patch('/seminar/{id}', [SeminarController::class, 'update']);
+    Route::delete('/seminar/{id}', [SeminarController::class, 'destroy']);
+
+    // SYARAT ADMINISTRASI KOLOKIUM
+    Route::get('/kolokium/{id}/syarat-administrasi', [SyaratAdministrasiKolokiumController::class, 'show']);
+    Route::get('/kolokium/{id}/syarat-administrasi/{syaratKey}/file', [SyaratAdministrasiKolokiumController::class, 'showFile']);
+    Route::post('/kolokium/{id}/syarat-administrasi/{syaratKey}', [SyaratAdministrasiKolokiumController::class, 'upload']);
+    Route::patch('/kolokium/{id}/syarat-administrasi/verify', [SyaratAdministrasiKolokiumController::class, 'verify']);
+
+    // SYARAT ADMINISTRASI SEMINAR
+    Route::get('/seminar/{id}/syarat-administrasi', [SyaratAdministrasiSeminarController::class, 'show']);
+    Route::get('/seminar/{id}/syarat-administrasi/{syaratKey}/file', [SyaratAdministrasiSeminarController::class, 'showFile']);
+    Route::post('/seminar/{id}/syarat-administrasi/{syaratKey}', [SyaratAdministrasiSeminarController::class, 'upload']);
+    Route::patch('/seminar/{id}/syarat-administrasi/verify', [SyaratAdministrasiSeminarController::class, 'verify']);   
+});
